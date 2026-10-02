@@ -1,0 +1,6 @@
+{
+  "name": "ScienceLab Explorer",
+  "description": "Interactive science visualization, prediction, and detective investigation laboratory for Class 9–12 students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
