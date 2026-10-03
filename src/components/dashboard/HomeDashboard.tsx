@@ -49,10 +49,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const heroRange = (heroVel * heroVel * Math.sin(2 * angleRad)) / heroG;
   const heroMaxH = (heroVel * heroVel * Math.sin(angleRad) * Math.sin(angleRad)) / (2 * heroG);
 
-  const recommendedConcept =
-    CONCEPTS_DATA.find((c) => c.gradeLevel === userGrade) ||
-    CONCEPTS_DATA[0];
-
   const featuredCase =
     DETECTIVE_CASES.find(
       (c) => c.gradeLevel === userGrade || (c.gradeLevels && c.gradeLevels.includes(userGrade))
@@ -254,64 +250,36 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </div>
       </div>
 
-      {/* Main Two Columns: Continue Learning & Science Detective Spotlight */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Recommended Concept Card */}
-        <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-mono uppercase tracking-wider text-cyan-400 font-bold">
-                Featured Concept
-              </span>
-              <span className="text-xs text-slate-500">{recommendedConcept.gradeLevel}</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-1">{recommendedConcept.title}</h3>
-            <p className="text-xs text-slate-400 leading-relaxed mb-4">{recommendedConcept.tagline}</p>
-
-            <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800/80 text-center mb-4">
-              <Formula tex={recommendedConcept.formulaLaTeX} className="text-sm scale-95" />
-            </div>
+      {/* Science Detective Forensic Mystery Spotlight */}
+      <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-mono uppercase tracking-wider text-amber-400 font-bold bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/30">
+              Forensic Mystery
+            </span>
+            <span className="text-xs text-amber-400 font-mono font-semibold">{featuredCase.caseNumber}</span>
+            <span className="text-xs text-slate-500 uppercase font-semibold">• {featuredCase.subject}</span>
           </div>
+          <h3 className="text-xl font-bold text-white mb-2">{featuredCase.title}</h3>
+          <p className="text-xs text-slate-300 leading-relaxed mb-3 max-w-2xl">
+            {featuredCase.premise}
+          </p>
 
-          <button
-            onClick={() => onSelectConcept(recommendedConcept.id)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md transition"
-          >
-            <span>Launch Visualizer</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="p-3 bg-slate-950/80 rounded-xl border border-amber-900/40 text-left max-w-2xl">
+            <span className="text-[10px] text-amber-400 font-mono font-bold block mb-0.5">
+              Core Investigation
+            </span>
+            <p className="text-xs text-slate-200 italic">"{featuredCase.mysteryQuestion}"</p>
+          </div>
         </div>
 
-        {/* Science Detective Case Card */}
-        <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-mono uppercase tracking-wider text-amber-400 font-bold">
-                Forensic Mystery
-              </span>
-              <span className="text-xs text-amber-400 font-mono">{featuredCase.caseNumber}</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-1">{featuredCase.title}</h3>
-            <p className="text-xs text-slate-300 leading-relaxed mb-4 line-clamp-3">
-              {featuredCase.premise}
-            </p>
-
-            <div className="p-3 bg-slate-950/80 rounded-xl border border-amber-900/40 text-left mb-4">
-              <span className="text-[10px] text-amber-400 font-mono font-bold block mb-0.5">
-                Core Investigation
-              </span>
-              <p className="text-xs text-slate-200 italic">"{featuredCase.mysteryQuestion}"</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => onSelectCase(featuredCase.id)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition"
-          >
-            <ShieldAlert className="w-4 h-4" />
-            <span>Accept Case Investigation</span>
-          </button>
-        </div>
+        <button
+          onClick={() => onSelectCase(featuredCase.id)}
+          className="w-full md:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition flex items-center justify-center gap-2 whitespace-nowrap"
+        >
+          <ShieldAlert className="w-4 h-4" />
+          <span>Accept Case Investigation</span>
+        </button>
       </div>
 
       {/* Senior Secondary Practical Laboratory Experiments Banner (Class 11 & 12 only) */}

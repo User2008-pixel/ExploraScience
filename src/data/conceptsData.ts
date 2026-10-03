@@ -1,4 +1,7 @@
 import { ConceptItem } from '../types/science';
+import { NCERT_CLASS9_CHEMISTRY_CONCEPTS } from './ncertClass9ChemistryData';
+import { NCERT_CLASS9_BIOLOGY_CONCEPTS } from './ncertClass9BiologyData';
+import { NCERT_CLASS10_PHYSICS_CONCEPTS } from './ncertClass10PhysicsData';
 
 export const CONCEPTS_DATA: ConceptItem[] = [
   // --- PHYSICS ---
@@ -5363,5 +5366,8 @@ export const CONCEPTS_DATA: ConceptItem[] = [
       },
     ],
   },
+  ...NCERT_CLASS9_CHEMISTRY_CONCEPTS,
+  ...NCERT_CLASS9_BIOLOGY_CONCEPTS,
+  ...NCERT_CLASS10_PHYSICS_CONCEPTS,
 ];
 

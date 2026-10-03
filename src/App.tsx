@@ -25,7 +25,7 @@ import { MathGraphingView } from './components/calculator/MathGraphingView';
 import { AuthModal } from './components/auth/AuthModal';
 import { ConfirmResetModal } from './components/common/ConfirmResetModal';
 import { UndoToast } from './components/common/UndoToast';
-import { CreditRewardToast } from './components/equipment/CreditRewardToast';
+import { CreditRewardToast } from './components/common/CreditRewardToast';
 import { UserProfile, GradeLevel } from './types/auth';
 
 import {
@@ -94,16 +94,14 @@ export default function App() {
     } catch {}
 
     // When upgrading to a verified profile from a clean 0-balance state, provide starter welcome kit
-    if (!updated.isGuest && progress.scienceCredits === 0 && progress.unlockedEquipmentIds.length === 0) {
+    if (!updated.isGuest && progress.scienceCredits === 0) {
       setProgress((prev) => ({
         ...prev,
         scienceCredits: 150,
-        unlockedEquipmentIds: ['digital-multimeter'],
-        equippedEquipmentIds: ['digital-multimeter'],
         streakDays: Math.max(1, prev.streakDays),
       }));
       setRewardToastAmount(150);
-      setRewardToastReason(`Welcome ${updated.name}! +150 Science Credits & Digital Multimeter unlocked!`);
+      setRewardToastReason(`Welcome ${updated.name}! +150 Science Credits awarded!`);
     }
   };
 
@@ -118,8 +116,6 @@ export default function App() {
       lastActiveDate: new Date().toISOString(),
       difficulty: 'explorer',
       scienceCredits: 0,
-      unlockedEquipmentIds: [],
-      equippedEquipmentIds: [],
     };
     setProgress(zeroProgress);
     try {
@@ -171,8 +167,6 @@ export default function App() {
         return {
           ...parsed,
           scienceCredits: parsed.scienceCredits ?? 0,
-          unlockedEquipmentIds: parsed.unlockedEquipmentIds ?? [],
-          equippedEquipmentIds: parsed.equippedEquipmentIds ?? [],
         };
       }
     } catch {}
@@ -186,39 +180,8 @@ export default function App() {
       lastActiveDate: new Date().toISOString(),
       difficulty: 'explorer',
       scienceCredits: 0,
-      unlockedEquipmentIds: [],
-      equippedEquipmentIds: [],
     };
   });
-
-  // Handle Equipment Unlock using Science Credits
-  const handleUnlockEquipment = (equipmentId: string, cost: number) => {
-    setProgress((prev) => {
-      const current = prev.scienceCredits ?? 150;
-      if (current < cost) return prev;
-      const alreadyUnlocked = prev.unlockedEquipmentIds || [];
-      return {
-        ...prev,
-        scienceCredits: current - cost,
-        unlockedEquipmentIds: [...alreadyUnlocked, equipmentId],
-        equippedEquipmentIds: [...(prev.equippedEquipmentIds || []), equipmentId],
-      };
-    });
-  };
-
-  // Handle Equipment Equip / Unequip Toggle
-  const handleToggleEquip = (equipmentId: string) => {
-    setProgress((prev) => {
-      const equipped = prev.equippedEquipmentIds || [];
-      const isAlreadyEquipped = equipped.includes(equipmentId);
-      return {
-        ...prev,
-        equippedEquipmentIds: isAlreadyEquipped
-          ? equipped.filter((id) => id !== equipmentId)
-          : [...equipped, equipmentId],
-      };
-    });
-  };
 
   // Save progress changes
   useEffect(() => {
@@ -288,10 +251,13 @@ export default function App() {
       return;
     }
 
-    // Award Science Credits: base 100 + score bonus up to 50
+    // Check if this case was already completed previously
+    const isAlreadyCompleted = progress.completedInvestigations.some((x) => x.caseId === summary.caseId);
+
+    // Award Science Credits strictly ONCE per investigation case (base 100 + score bonus up to 50)
     const baseCredits = 100;
     const bonusCredits = Math.round((summary.understandingScore / 100) * 50);
-    const totalEarnedCredits = baseCredits + bonusCredits;
+    const totalEarnedCredits = isAlreadyCompleted ? 0 : baseCredits + bonusCredits;
 
     setProgress((prev) => ({
       ...prev,
@@ -300,8 +266,12 @@ export default function App() {
       mistakesHistory: [...newMistakeRecords, ...prev.mistakesHistory],
     }));
 
-    setRewardToastAmount(totalEarnedCredits);
-    setRewardToastReason(`Completed "${summary.caseTitle}" with ${summary.understandingScore}% accuracy!`);
+    if (totalEarnedCredits > 0) {
+      setRewardToastAmount(totalEarnedCredits);
+      setRewardToastReason(`Completed "${summary.caseTitle}" with ${summary.understandingScore}% accuracy! (First-Time Investigation Reward)`);
+    } else {
+      setRewardToastAmount(null);
+    }
 
     setSelectedCaseId(null);
   };
@@ -374,8 +344,6 @@ export default function App() {
       lastActiveDate: new Date().toISOString(),
       difficulty: 'explorer',
       scienceCredits: 150,
-      unlockedEquipmentIds: ['digital-multimeter'],
-      equippedEquipmentIds: ['digital-multimeter'],
     };
     setProgress(fresh);
     setIsUndoToastOpen(true);
@@ -583,13 +551,8 @@ export default function App() {
               <ConceptVisualizerView
                 concept={selectedConcept}
                 onSelectConcept={handleSelectConcept}
-                onOpenDetectiveCase={handleSelectCase}
                 onBack={() => setSelectedConceptId(null)}
                 scienceCredits={progress.scienceCredits || 0}
-                unlockedEquipmentIds={progress.unlockedEquipmentIds || ['digital-multimeter']}
-                equippedEquipmentIds={progress.equippedEquipmentIds || ['digital-multimeter']}
-                onUnlockEquipment={handleUnlockEquipment}
-                onToggleEquip={handleToggleEquip}
                 onEarnCredits={handleEarnCredits}
                 onMasterConcept={handleMasterConcept}
               />
@@ -632,10 +595,6 @@ export default function App() {
                 onBack={() => setSelectedCaseId(null)}
                 onCompleteInvestigation={handleCompleteInvestigation}
                 scienceCredits={progress.scienceCredits || 0}
-                unlockedEquipmentIds={progress.unlockedEquipmentIds || ['digital-multimeter']}
-                equippedEquipmentIds={progress.equippedEquipmentIds || []}
-                onUnlockEquipment={handleUnlockEquipment}
-                onToggleEquip={handleToggleEquip}
                 onDeductCredits={handleDeductCredits}
               />
             ) : (

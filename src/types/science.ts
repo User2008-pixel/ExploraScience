@@ -143,8 +143,8 @@ export interface StudentProgress {
   difficulty: DifficultyLevel;
   unlockedBadgeIds?: string[];
   scienceCredits: number;
-  unlockedEquipmentIds: string[];
-  equippedEquipmentIds: string[];
+  unlockedEquipmentIds?: string[];
+  equippedEquipmentIds?: string[];
 }
 
 export type BadgeCategory = 'exploration' | 'investigation' | 'accuracy' | 'mastery' | 'streak';

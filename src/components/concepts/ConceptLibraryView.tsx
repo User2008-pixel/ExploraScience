@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Subject, ConceptItem } from '../../types/science';
 import { GradeLevel } from '../../types/auth';
 import { CONCEPTS_DATA } from '../../data/conceptsData';
-import { DETECTIVE_CASES } from '../../data/detectiveCasesData';
 import { Formula } from '../common/Formula';
-import { Search, Atom, Dna, Zap, ArrowRight, ShieldAlert, Sparkles, Filter, GraduationCap } from 'lucide-react';
+import { Search, Atom, Dna, Zap, ArrowRight, Sparkles, Filter, GraduationCap } from 'lucide-react';
 
 interface ConceptLibraryViewProps {
   onSelectConcept: (conceptId: string) => void;
-  onOpenDetectiveCase: (caseId: string) => void;
+  onOpenDetectiveCase?: (caseId: string) => void;
   userGrade?: GradeLevel;
   onUpdateGrade?: (grade: GradeLevel) => void;
 }
@@ -128,9 +127,6 @@ export const ConceptLibraryView: React.FC<ConceptLibraryViewProps> = ({
       {/* Grid of Concept Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredConcepts.map((concept) => {
-          // Check if there is an affiliated Science Detective case
-          const matchingCase = DETECTIVE_CASES.find((c) => c.subject === concept.subject);
-
           return (
             <div
               key={concept.id}
@@ -167,7 +163,7 @@ export const ConceptLibraryView: React.FC<ConceptLibraryViewProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+              <div className="pt-2 border-t border-slate-800/80">
                 <button
                   onClick={() => onSelectConcept(concept.id)}
                   className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition shadow-sm"
@@ -175,16 +171,6 @@ export const ConceptLibraryView: React.FC<ConceptLibraryViewProps> = ({
                   <span>Launch Visualizer</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
-
-                {matchingCase && (
-                  <button
-                    onClick={() => onOpenDetectiveCase(matchingCase.id)}
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-[11px] transition"
-                  >
-                    <ShieldAlert className="w-3 h-3 text-amber-400" />
-                    <span>Investigate Related Case</span>
-                  </button>
-                )}
               </div>
             </div>
           );

@@ -25,34 +25,26 @@ import { ThermodynamicsSim } from '../simulations/ThermodynamicsSim';
 import { AtomicStructureSim } from '../simulations/AtomicStructureSim';
 import { NervousSystemSim } from '../simulations/NervousSystemSim';
 import { CellOsmosisSim } from '../simulations/CellOsmosisSim';
-import { SimulationEquipmentHUD } from '../equipment/SimulationEquipmentHUD';
+import { Class9ChemistrySim } from '../simulations/Class9ChemistrySim';
+import { Class9BiologySim } from '../simulations/Class9BiologySim';
+import { Class10PhysicsSim } from '../simulations/Class10PhysicsSim';
 import {
   BookOpen,
   Eye,
   Sliders,
   HelpCircle,
   Globe,
-  Share2,
   CheckCircle2,
   AlertCircle,
-  ArrowRight,
-  ShieldAlert,
-  Coins,
-  Sparkles,
   RefreshCw,
+  Coins,
 } from 'lucide-react';
 
 interface ConceptVisualizerViewProps {
   concept: ConceptItem;
   onSelectConcept: (conceptId: string) => void;
-  onOpenDetectiveCase?: (caseId: string) => void;
   onBack: () => void;
   scienceCredits?: number;
-  unlockedEquipmentIds?: string[];
-  equippedEquipmentIds?: string[];
-  onUnlockEquipment?: (equipmentId: string, cost: number) => void;
-  onToggleEquip?: (equipmentId: string) => void;
-  onOpenArmory?: () => void;
   onEarnCredits?: (amount: number, reason: string) => void;
   onMasterConcept?: (conceptId: string) => void;
 }
@@ -62,14 +54,8 @@ type StageTab = 'understand' | 'visualise' | 'manipulate' | 'investigate' | 'app
 export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
   concept,
   onSelectConcept,
-  onOpenDetectiveCase,
   onBack,
   scienceCredits = 0,
-  unlockedEquipmentIds = ['digital-multimeter'],
-  equippedEquipmentIds = ['digital-multimeter'],
-  onUnlockEquipment = () => {},
-  onToggleEquip = () => {},
-  onOpenArmory = () => {},
   onEarnCredits = () => {},
   onMasterConcept = () => {},
 }) => {
@@ -274,7 +260,75 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
             temperatureC={varValues.temperatureC ?? 25}
           />
         );
+      case 'class9-chemistry':
+      case 'chem-reactions-conservation':
+      case 'matter-surroundings':
+      case 'solutions-colloids':
+      case 'atoms-molecules-formula':
+      case 'structure-of-atom':
+      case 'bohr-model':
+      case 'rutherford-scattering':
+      case 'law-conservation-mass':
+        return (
+          <Class9ChemistrySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class9-biology':
+      case 'bio-cell-explorer':
+      case 'cell-structure-organelles':
+      case 'plant-vs-animal-cells':
+      case 'cell-osmosis-plasmolysis':
+      case 'plant-tissues':
+      case 'animal-tissues':
+      case 'cell-division-mitosis':
+      case 'food-resources-crops':
+        return (
+          <Class9BiologySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class10-physics':
+        return (
+          <Class10PhysicsSim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
       default:
+        // Automatic routing for Class 9 chemistry & biology and Class 10 physics
+        if (concept.gradeLevel === 'Class 9' && concept.subject === 'chemistry') {
+          return (
+            <Class9ChemistrySim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 9' && concept.subject === 'biology') {
+          return (
+            <Class9BiologySim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 10' && concept.subject === 'physics') {
+          return (
+            <Class10PhysicsSim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
         return (
           <div className="p-8 text-center bg-slate-900 rounded-xl text-slate-400">
             Interactive simulation initialized.
@@ -308,16 +362,6 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {onOpenArmory && (
-            <button
-              onClick={onOpenArmory}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 border border-amber-500/30 text-amber-300 font-mono text-xs font-bold transition shadow-sm"
-              title="Open Virtual Equipment Armory Store"
-            >
-              <Coins className="w-3.5 h-3.5 text-amber-400" />
-              <span>{scienceCredits.toLocaleString()} ⚛️ Armory</span>
-            </button>
-          )}
           <button
             onClick={onBack}
             className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition"
@@ -334,7 +378,7 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
           { id: 'visualise', label: '2. Visualise', icon: Eye },
           { id: 'manipulate', label: '3. Manipulate', icon: Sliders },
           { id: 'investigate', label: '4. Investigate (Predict)', icon: HelpCircle },
-          { id: 'apply', label: '5. Apply & Connect', icon: Globe },
+          { id: 'apply', label: '5. Real-World Applications', icon: Globe },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -400,18 +444,6 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
       {/* STAGE 2: VISUALISE & STAGE 3: MANIPULATE */}
       {(activeTab === 'visualise' || activeTab === 'manipulate') && (
         <div className="space-y-5">
-          {/* Advanced Simulation Equipment & Tools Armory Bar */}
-          <SimulationEquipmentHUD
-            simulationType={concept.simulationType}
-            variableValues={varValues}
-            scienceCredits={scienceCredits}
-            unlockedEquipmentIds={unlockedEquipmentIds}
-            equippedEquipmentIds={equippedEquipmentIds}
-            onUnlockEquipment={onUnlockEquipment}
-            onToggleEquip={onToggleEquip}
-            onOpenArmory={onOpenArmory}
-          />
-
           {/* Main Interactive Simulation Canvas */}
           {renderSimulation()}
 
@@ -584,7 +616,7 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
         </div>
       )}
 
-      {/* STAGE 5: APPLY & CONNECT */}
+      {/* STAGE 5: REAL-WORLD APPLICATIONS */}
       {activeTab === 'apply' && (
         <div className="space-y-6">
           {/* Real-World Connections */}
@@ -603,37 +635,6 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
                     <p className="text-xs text-slate-400 leading-relaxed">{app.description}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Interactive Concept Map Connections */}
-          <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 text-cyan-400">
-              <Share2 className="w-5 h-5" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-                Connected Scientific Concept Map
-              </h3>
-            </div>
-            <p className="text-xs text-slate-400">
-              Scientific concepts do not exist in isolation. Click any related concept below to explore its foundational mechanics:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {concept.relatedConcepts.map((rel) => (
-                <button
-                  key={rel.id}
-                  onClick={() => onSelectConcept(rel.id)}
-                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:border-cyan-500/60 hover:bg-slate-900 transition text-left group"
-                >
-                  <div>
-                    <span className="text-[10px] text-slate-500 uppercase font-mono">{rel.subject}</span>
-                    <h4 className="text-xs font-semibold text-slate-200 group-hover:text-cyan-300 transition">
-                      {rel.name}
-                    </h4>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition" />
-                </button>
               ))}
             </div>
           </div>

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { DetectiveCase, DataMeasurement, MistakeCategory } from '../../types/science';
-import { LAB_EQUIPMENT_DATA } from '../../data/equipmentData';
 import { Formula } from '../common/Formula';
 import { VariableSlider } from '../common/VariableSlider';
 import { GraphViewer } from '../common/GraphViewer';
@@ -46,10 +45,6 @@ interface DetectiveInvestigationViewProps {
     mistakes: MistakeCategory[];
   }) => void;
   scienceCredits?: number;
-  unlockedEquipmentIds?: string[];
-  equippedEquipmentIds?: string[];
-  onUnlockEquipment?: (equipmentId: string, cost: number) => void;
-  onToggleEquip?: (equipmentId: string) => void;
   onDeductCredits?: (amount: number, reason: string) => boolean;
 }
 
@@ -610,25 +605,9 @@ export const DetectiveInvestigationView: React.FC<DetectiveInvestigationViewProp
   onBack,
   onCompleteInvestigation,
   scienceCredits = 0,
-  unlockedEquipmentIds = ['digital-multimeter'],
-  equippedEquipmentIds = [],
-  onUnlockEquipment = () => {},
-  onToggleEquip = () => {},
   onDeductCredits,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-
-  // Equipped tools from Armory
-  const equippedTools = LAB_EQUIPMENT_DATA.filter((eq) =>
-    equippedEquipmentIds.includes(eq.id)
-  );
-
-  // Compatible locked tools that can be unlocked using Science Credits
-  const lockedCompatibleTools = LAB_EQUIPMENT_DATA.filter(
-    (eq) =>
-      !unlockedEquipmentIds.includes(eq.id) &&
-      (eq.compatibleSims.includes('all') || eq.compatibleSims.includes(detectiveCase.simulationType))
-  );
 
   // Solutions and guidance data
   const guidance = CASE_GUIDANCE[detectiveCase.id];
@@ -1524,69 +1503,10 @@ export const DetectiveInvestigationView: React.FC<DetectiveInvestigationViewProp
               </div>
             </div>
 
-            {/* Active Sensor Equipment Strip */}
-            {equippedTools.length > 0 && (
-              <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-cyan-400" /> Active Instruments:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {equippedTools.map((eq) => (
-                      <span
-                        key={eq.id}
-                        className="px-2 py-0.5 rounded-md bg-cyan-950/60 border border-cyan-800/60 text-cyan-200 font-mono text-[11px] flex items-center gap-1"
-                      >
-                        <Zap className="w-2.5 h-2.5 text-cyan-400" />
-                        <span>{eq.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Quick Unlocks for compatible equipment in Detective Mode */}
-            {lockedCompatibleTools.length > 0 && (
-              <div className="p-2.5 rounded-xl bg-amber-950/20 border border-amber-900/40 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-1.5 text-amber-300">
-                  <Coins className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="font-semibold text-[11px]">Unlock Sensor Equipment:</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {lockedCompatibleTools.slice(0, 3).map((tool) => {
-                    const canAfford = scienceCredits >= tool.cost;
-                    return (
-                      <button
-                        key={tool.id}
-                        onClick={() => {
-                          if (canAfford) {
-                            onUnlockEquipment(tool.id, tool.cost);
-                          }
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold flex items-center gap-1 transition ${
-                          canAfford
-                            ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 shadow-sm'
-                            : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                        }`}
-                        title={tool.description}
-                      >
-                        <Lock className="w-2.5 h-2.5" />
-                        <span>{tool.name}: {tool.cost} ⚛️</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             <DetectiveSimCanvas
               simulationType={detectiveCase.simulationType}
               variableValues={varValues}
-              activeEquipment={[
-                ...selectedEquipment,
-                ...equippedTools.map((t) => t.name),
-              ]}
+              activeEquipment={selectedEquipment}
             />
 
             {/* Sliders for Available Variables */}
