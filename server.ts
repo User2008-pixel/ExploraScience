@@ -3,7 +3,9 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
+import nodemailer from 'nodemailer';
 
 dotenv.config();
 
@@ -713,6 +715,206 @@ Check the **Unit Converter** to quickly verify measurement dimensions and our **
         modelUsed: 'Dr. Nova STEM Engine (Offline Safe)',
         isQuotaFallback: true,
       });
+    }
+  });
+
+  // --- Creator Reviews, Feedback & Query Endpoints ---
+  // The developer's email is kept strictly on the server side (never sent to client/browser)
+  const DEVELOPER_EMAIL = process.env.DEVELOPER_EMAIL || 'kirtan.bhutada.2008@gmail.com';
+  const REVIEWS_DIR = path.resolve(__dirname, 'data');
+  const REVIEWS_FILE = path.resolve(REVIEWS_DIR, 'user_reviews.json');
+
+  // Ensure storage directory and file exist
+  const getStoredReviews = (): any[] => {
+    try {
+      if (!fs.existsSync(REVIEWS_DIR)) {
+        fs.mkdirSync(REVIEWS_DIR, { recursive: true });
+      }
+      if (!fs.existsSync(REVIEWS_FILE)) {
+        fs.writeFileSync(REVIEWS_FILE, JSON.stringify([], null, 2), 'utf8');
+        return [];
+      }
+      const raw = fs.readFileSync(REVIEWS_FILE, 'utf8');
+      return JSON.parse(raw) || [];
+    } catch (e) {
+      console.error('Error reading stored reviews:', e);
+      return [];
+    }
+  };
+
+  const saveStoredReviews = (reviews: any[]) => {
+    try {
+      if (!fs.existsSync(REVIEWS_DIR)) {
+        fs.mkdirSync(REVIEWS_DIR, { recursive: true });
+      }
+      fs.writeFileSync(REVIEWS_FILE, JSON.stringify(reviews, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Error saving stored reviews:', e);
+    }
+  };
+
+  // Submit user review / suggestion / query
+  // STRICT PRIVACY: Only the user's name is collected and saved. No personal details, email, or IP are collected or shown.
+  app.post('/api/reviews/submit', async (req, res) => {
+    try {
+      const { name, category, rating, message, topicContext } = req.body;
+
+      if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        return res.status(400).json({ error: 'Message content is required.' });
+      }
+
+      const sanitizedName = (name && typeof name === 'string' && name.trim().length > 0)
+        ? name.trim().slice(0, 80)
+        : 'Student Explorer';
+
+      const sanitizedCategory = (category && typeof category === 'string')
+        ? category.trim().slice(0, 50)
+        : 'Suggestion';
+
+      const sanitizedRating = typeof rating === 'number' && rating >= 1 && rating <= 5
+        ? Math.round(rating)
+        : 5;
+
+      const sanitizedMessage = message.trim().slice(0, 3000);
+      const sanitizedContext = (topicContext && typeof topicContext === 'string')
+        ? topicContext.trim().slice(0, 100)
+        : 'General ScienceLab';
+
+      const newReview = {
+        id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: sanitizedName, // ONLY their name is visible to creator
+        category: sanitizedCategory,
+        rating: sanitizedRating,
+        topicContext: sanitizedContext,
+        message: sanitizedMessage,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Persist to storage
+      const existing = getStoredReviews();
+      existing.unshift(newReview);
+      saveStoredReviews(existing);
+
+      // Attempt sending email to developer if SMTP environment variables are present
+      // In all environments, developer's email is NEVER revealed to the client.
+      let emailDispatched = false;
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+      const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+
+      if (smtpHost && smtpUser && smtpPass) {
+        try {
+          const transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpPort === 465,
+            auth: {
+              user: smtpUser,
+              pass: smtpPass,
+            },
+          });
+
+          await transporter.sendMail({
+            from: `"ScienceLab Explorer Feedback" <${smtpUser}>`,
+            to: DEVELOPER_EMAIL,
+            subject: `[ScienceLab Review] New ${sanitizedCategory} from ${sanitizedName}`,
+            text: `You received a new submission on ScienceLab Explorer:
+
+Sender Name: ${sanitizedName}
+Category: ${sanitizedCategory}
+Rating: ${sanitizedRating} / 5 Stars
+Context / Topic: ${sanitizedContext}
+Submitted At: ${new Date().toLocaleString()}
+
+Message / Query:
+--------------------------------------------------
+${sanitizedMessage}
+--------------------------------------------------
+
+* Note: As per privacy policy, no sender contact details, emails, or personal data were collected. Only the sender's display name is visible.`,
+            html: `
+              <div style="font-family: Arial, sans-serif; background: #0f172a; color: #f8fafc; padding: 24px; border-radius: 12px; max-width: 600px;">
+                <h2 style="color: #38bdf8; margin-top: 0;">📬 New ScienceLab Review &amp; Query</h2>
+                <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                  <p style="margin: 4px 0;"><strong>Sender Name:</strong> ${sanitizedName}</p>
+                  <p style="margin: 4px 0;"><strong>Category:</strong> <span style="background: #0284c7; color: white; padding: 2px 8px; border-radius: 4px;">${sanitizedCategory}</span></p>
+                  <p style="margin: 4px 0;"><strong>Rating:</strong> ${'★'.repeat(sanitizedRating)}${'☆'.repeat(5 - sanitizedRating)} (${sanitizedRating}/5)</p>
+                  <p style="margin: 4px 0;"><strong>Topic Context:</strong> ${sanitizedContext}</p>
+                  <p style="margin: 4px 0; color: #94a3b8; font-size: 12px;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+                <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #38bdf8;">
+                  <h4 style="margin: 0 0 8px 0; color: #cbd5e1;">Message / Suggestion / Query:</h4>
+                  <p style="white-space: pre-wrap; line-height: 1.6; margin: 0; color: #f1f5f9;">${sanitizedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                </div>
+                <p style="color: #64748b; font-size: 11px; margin-top: 20px;">
+                  🔒 <em>Privacy Protection:</em> Only the sender's name is recorded. No personal details, passwords, or emails were requested.
+                </p>
+              </div>
+            `,
+          });
+          emailDispatched = true;
+          console.log(`[Review Forwarded via Email] To hidden creator inbox for submission from "${sanitizedName}"`);
+        } catch (emailErr) {
+          console.warn('[Review Email Dispatch Note] Could not send via SMTP transport (saved in reviews database):', emailErr);
+        }
+      } else {
+        // Log formatted review dispatch notice on server
+        console.log(`
+======================================================================
+📬 NEW USER REVIEW & QUERY DISPATCHED TO CREATOR
+To: [Creator Inbox (Hidden From Users)]
+From: ${sanitizedName}
+Category: ${sanitizedCategory} | Rating: ${sanitizedRating} Stars
+Context: ${sanitizedContext}
+Message: "${sanitizedMessage}"
+======================================================================`);
+      }
+
+      return res.json({
+        success: true,
+        message: 'Your review and suggestions have been delivered directly to the creator. Thank you for helping shape ScienceLab Explorer!',
+        reviewId: newReview.id,
+        emailDispatched,
+      });
+    } catch (err: any) {
+      console.error('Error submitting review:', err);
+      return res.status(500).json({ error: 'Failed to submit review. Please try again.' });
+    }
+  });
+
+  // Get all reviews for the creator (only shows user's name, category, rating, message, and date)
+  app.get('/api/reviews', (_req, res) => {
+    try {
+      const reviews = getStoredReviews();
+      // Strictly map only public/creator-safe fields: only name, no other personal details!
+      const safeReviews = reviews.map((r) => ({
+        id: r.id,
+        name: r.name,
+        category: r.category,
+        rating: r.rating,
+        topicContext: r.topicContext,
+        message: r.message,
+        createdAt: r.createdAt,
+      }));
+      return res.json({ reviews: safeReviews });
+    } catch (err: any) {
+      console.error('Error retrieving reviews:', err);
+      return res.status(500).json({ error: 'Failed to retrieve reviews.' });
+    }
+  });
+
+  // Delete/Archive a review by ID
+  app.delete('/api/reviews/:id', (req, res) => {
+    try {
+      const { id } = req.params;
+      const existing = getStoredReviews();
+      const filtered = existing.filter((r) => r.id !== id);
+      saveStoredReviews(filtered);
+      return res.json({ success: true, remaining: filtered.length });
+    } catch (err: any) {
+      console.error('Error deleting review:', err);
+      return res.status(500).json({ error: 'Failed to delete review.' });
     }
   });
 

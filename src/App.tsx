@@ -26,6 +26,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { ConfirmResetModal } from './components/common/ConfirmResetModal';
 import { UndoToast } from './components/common/UndoToast';
 import { CreditRewardToast } from './components/common/CreditRewardToast';
+import { ReviewModal } from './components/common/ReviewModal';
 import { UserProfile, GradeLevel } from './types/auth';
 
 import {
@@ -44,6 +45,7 @@ import {
   User,
   Coins,
   FlaskConical,
+  MessageSquare,
 } from 'lucide-react';
 
 type NavTab = 'home' | 'concepts' | 'practicals' | 'detective' | 'calculator' | 'progress' | 'mistakes' | 'settings';
@@ -60,6 +62,13 @@ export default function App() {
   const [isAITutorOpen, setIsAITutorOpen] = useState(false);
   const [tutorInitialQuestion, setTutorInitialQuestion] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewModalInitialView, setReviewModalInitialView] = useState<'form' | 'inbox'>('form');
+
+  const handleOpenReviewModal = (view: 'form' | 'inbox' = 'form') => {
+    setReviewModalInitialView(view);
+    setIsReviewModalOpen(true);
+  };
 
   const handleOpenPractical = (practicalId: string) => {
     setSelectedPracticalId(practicalId);
@@ -670,6 +679,7 @@ export default function App() {
             onResetProgress={handleRequestResetProgress}
             currentUser={currentUser}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            onOpenReviewModal={(view) => handleOpenReviewModal(view || 'form')}
           />
         )}
       </main>
@@ -721,18 +731,64 @@ export default function App() {
       />
 
       {/* Global Footer */}
-      <footer className="border-t border-slate-800/80 bg-[#0B1120] text-slate-500 text-xs py-6 px-4 text-center mt-12">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <footer className="border-t border-slate-800/80 bg-[#0B1120] text-slate-500 text-xs py-6 px-4 mt-12">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
             <span className="text-slate-400 font-medium">ScienceLab Explorer</span>
             <span>• Class 9–12 Physics, Chemistry, Biology</span>
           </div>
-          <div className="italic text-slate-400">
-            "Don't tell students what happens. Let them make it happen."
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleOpenReviewModal('form')}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500/15 via-cyan-500/15 to-emerald-500/15 hover:from-purple-500/25 hover:to-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-semibold text-xs transition flex items-center gap-2 shadow-sm"
+              title="Email Creator for Suggestions & Queries (Privacy Protected)"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Review &amp; Suggestions</span>
+            </button>
+            <div className="italic text-slate-400 hidden md:block">
+              "Don't tell students what happens. Let them make it happen."
+            </div>
           </div>
         </div>
       </footer>
+
+      {/* Floating Bottom Quick Review Button (Accessible Across All Views) */}
+      <button
+        onClick={() => handleOpenReviewModal('form')}
+        className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold p-3 sm:px-4 sm:py-2.5 rounded-full shadow-2xl shadow-cyan-500/30 border border-cyan-400/40 flex items-center gap-2 transition transform hover:scale-105 active:scale-95 group"
+        title="Email Creator: Share Suggestions, Queries & Reviews (Privacy Protected)"
+      >
+        <MessageSquare className="w-4 h-4 text-cyan-200 group-hover:animate-pulse" />
+        <span className="hidden sm:inline text-xs tracking-wide">Review &amp; Queries</span>
+        <span className="flex h-2 w-2 relative">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-300 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+        </span>
+      </button>
+
+      {/* Creator Review & Suggestion Modal */}
+      <ReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        initialView={reviewModalInitialView}
+        defaultUserName={currentUser.isGuest ? '' : currentUser.name}
+        activeContext={
+          selectedCase
+            ? `Detective Case: ${selectedCase.title}`
+            : selectedConcept
+            ? `Concept: ${selectedConcept.title} (${selectedConcept.gradeLevel})`
+            : activeTab === 'practicals'
+            ? 'Senior Secondary Practical Bench'
+            : activeTab === 'calculator'
+            ? 'Math & Graphing Lab'
+            : activeTab === 'mistakes'
+            ? 'Mistakes & Misconceptions Lab'
+            : 'General ScienceLab'
+        }
+      />
     </div>
   );
 }

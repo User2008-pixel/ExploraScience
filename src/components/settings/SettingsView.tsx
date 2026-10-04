@@ -1,7 +1,7 @@
 import React from 'react';
 import { DifficultyLevel } from '../../types/science';
 import { UserProfile } from '../../types/auth';
-import { Sliders, RotateCcw, Shield, CheckCircle, Info, User, LogIn, Sparkles } from 'lucide-react';
+import { Sliders, RotateCcw, Shield, CheckCircle, Info, User, LogIn, Sparkles, MessageSquare, Lock, Inbox } from 'lucide-react';
 
 interface SettingsViewProps {
   difficulty: DifficultyLevel;
@@ -9,6 +9,7 @@ interface SettingsViewProps {
   onResetProgress: () => void;
   currentUser?: UserProfile;
   onOpenAuthModal?: () => void;
+  onOpenReviewModal?: (initialView?: 'form' | 'inbox') => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -17,6 +18,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onResetProgress,
   currentUser,
   onOpenAuthModal,
+  onOpenReviewModal,
 }) => {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -135,6 +137,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           Scientific understanding is achieved when learners manipulate variables, confront misconceptions, collect empirical data, and construct explanations grounded in verified models.
         </p>
       </div>
+
+      {/* Creator Feedback, Suggestions & Review */}
+      {onOpenReviewModal && (
+        <div className="bg-gradient-to-r from-purple-950/30 via-[#131E36] to-cyan-950/30 rounded-2xl border border-cyan-500/30 p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <h4 className="text-sm font-bold text-white">Suggestions, Queries &amp; Creator Review</h4>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-bold">
+                Private &amp; Direct
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+              Email the developer directly to suggest new simulation models, report issues, or ask questions. The developer&apos;s email address is kept private, and only your name is shown.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onOpenReviewModal('form')}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition active:scale-95"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Submit Review</span>
+            </button>
+            <button
+              onClick={() => onOpenReviewModal('inbox')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition active:scale-95"
+            >
+              <Inbox className="w-4 h-4 text-cyan-200" />
+              <span>Creator Inbox</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Reset Progress */}
       <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
