@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PRACTICAL_LABS_DATA } from '../../data/practicalLabsData';
 import { PracticalExperiment, PracticalGrade, PracticalSubject } from '../../types/practicals';
 import { GradeLevel } from '../../types/auth';
@@ -12,6 +12,13 @@ import { PotentiometerSim } from './PotentiometerSim';
 import { PrismDeviationSim } from './PrismDeviationSim';
 import { SonometerSim } from './SonometerSim';
 import { TitrationSim } from './TitrationSim';
+import { ThiosulfateKineticsSim } from './ThiosulfateKineticsSim';
+import { SaltAnalysisSim } from './SaltAnalysisSim';
+import { PaperChromatographySim } from './PaperChromatographySim';
+import { MitosisRootTipSim } from './MitosisRootTipSim';
+import { BiochemicalFoodTestsSim } from './BiochemicalFoodTestsSim';
+import { ResonanceTubeSim } from './ResonanceTubeSim';
+import { PNJunctionSim } from './PNJunctionSim';
 import {
   FlaskConical,
   Atom,
@@ -35,6 +42,7 @@ import {
 import confetti from 'canvas-confetti';
 
 interface PracticalLabViewProps {
+  initialExperimentId?: string;
   onOpenTutorWithQuestion?: (question: string) => void;
   scienceCredits?: number;
   onEarnCredits?: (amount: number, reason: string) => void;
@@ -43,6 +51,7 @@ interface PracticalLabViewProps {
 }
 
 export const PracticalLabView: React.FC<PracticalLabViewProps> = ({
+  initialExperimentId,
   onOpenTutorWithQuestion,
   scienceCredits = 0,
   onEarnCredits,
@@ -51,11 +60,24 @@ export const PracticalLabView: React.FC<PracticalLabViewProps> = ({
 }) => {
   const effectiveGrade: PracticalGrade = userGrade === 'Class 12' ? 'Class 12' : 'Class 11';
   const [selectedSubject, setSelectedSubject] = useState<'all' | PracticalSubject>('all');
-  const initialExp = PRACTICAL_LABS_DATA.find((e) => e.gradeLevel === effectiveGrade) || PRACTICAL_LABS_DATA[0];
-  const [selectedExperimentId, setSelectedExperimentId] = useState<string>(initialExp.id);
+  const initialExp =
+    (initialExperimentId && PRACTICAL_LABS_DATA.find((e) => e.id === initialExperimentId)) ||
+    PRACTICAL_LABS_DATA.find((e) => e.gradeLevel === effectiveGrade) ||
+    PRACTICAL_LABS_DATA[0];
+  const [selectedExperimentId, setSelectedExperimentId] = useState<string>(initialExperimentId || initialExp.id);
   const [activeTab, setActiveTab] = useState<'apparatus' | 'theory' | 'procedure' | 'viva'>('apparatus');
   const [searchQuery, setSearchQuery] = useState('');
   const [completedVivaIndices, setCompletedVivaIndices] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (initialExperimentId) {
+      setSelectedExperimentId(initialExperimentId);
+      const matched = PRACTICAL_LABS_DATA.find((e) => e.id === initialExperimentId);
+      if (matched) {
+        setSelectedSubject(matched.subject);
+      }
+    }
+  }, [initialExperimentId]);
 
   // If student is in Class 9 or Class 10, hide laboratory practicals and explain curriculum alignment
   if (userGrade === 'Class 9' || userGrade === 'Class 10') {
@@ -160,6 +182,20 @@ export const PracticalLabView: React.FC<PracticalLabViewProps> = ({
       case 'titration-kmno4':
       case 'titration-mohr':
         return <TitrationSim />;
+      case 'reaction-kinetics-thiosulfate':
+        return <ThiosulfateKineticsSim />;
+      case 'salt-analysis':
+        return <SaltAnalysisSim />;
+      case 'paper-chromatography':
+        return <PaperChromatographySim />;
+      case 'mitosis-root-tip':
+        return <MitosisRootTipSim />;
+      case 'food-tests':
+        return <BiochemicalFoodTestsSim />;
+      case 'resonance-tube':
+        return <ResonanceTubeSim />;
+      case 'pn-junction':
+        return <PNJunctionSim />;
       default:
         // Default high-precision specialized practical bench
         return (

@@ -46,7 +46,12 @@ import {
   AlertCircle,
   RefreshCw,
   Coins,
+  ShieldAlert,
+  FlaskConical,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
+import { getPracticeLinksForConcept, PracticeLinkSuggestion } from '../../utils/practiceLinkSuggester';
 
 interface ConceptVisualizerViewProps {
   concept: ConceptItem;
@@ -55,9 +60,11 @@ interface ConceptVisualizerViewProps {
   scienceCredits?: number;
   onEarnCredits?: (amount: number, reason: string) => void;
   onMasterConcept?: (conceptId: string) => void;
+  onOpenDetectiveCase?: (caseId: string) => void;
+  onOpenPractical?: (practicalId: string) => void;
 }
 
-type StageTab = 'understand' | 'visualise' | 'manipulate' | 'investigate' | 'apply';
+type StageTab = 'understand' | 'visualise' | 'manipulate' | 'investigate' | 'apply' | 'practice';
 
 export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
   concept,
@@ -66,9 +73,12 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
   scienceCredits = 0,
   onEarnCredits = () => {},
   onMasterConcept = () => {},
+  onOpenDetectiveCase,
+  onOpenPractical,
 }) => {
   const [activeTab, setActiveTab] = useState<StageTab>('visualise');
   const [hasAwardedCredits, setHasAwardedCredits] = useState(false);
+  const practiceSuggestions = getPracticeLinksForConcept(concept);
 
   // Variable values state
   const [varValues, setVarValues] = useState<Record<string, number>>(() => {
@@ -515,7 +525,7 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
         </div>
       </div>
 
-      {/* 5-Stage Core Learning Loop Tabs */}
+      {/* 6-Stage Core Learning Loop Tabs */}
       <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-1.5 flex flex-wrap gap-1 shadow-md">
         {[
           { id: 'understand', label: '1. Understand', icon: BookOpen },
@@ -523,6 +533,7 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
           { id: 'manipulate', label: '3. Manipulate', icon: Sliders },
           { id: 'investigate', label: '4. Investigate (Predict)', icon: HelpCircle },
           { id: 'apply', label: '5. Real-World Applications', icon: Globe },
+          { id: 'practice', label: '6. Practice-Link', icon: ShieldAlert },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -530,7 +541,7 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as StageTab)}
-              className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-medium transition ${
+              className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-medium transition ${
                 isActive
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -781,6 +792,166 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* STAGE 6: PRACTICE-LINK (FORENSIC CASES & LAB PRACTICALS) */}
+      {activeTab === 'practice' && (
+        <div className="space-y-6">
+          {/* Top Banner */}
+          <div className="bg-gradient-to-r from-cyan-950/40 via-[#131E36] to-purple-950/40 rounded-2xl border border-cyan-500/30 p-6 shadow-xl space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+              <span className="text-xs font-mono uppercase tracking-wider text-cyan-300 font-bold bg-cyan-500/10 px-2.5 py-0.5 rounded border border-cyan-500/30">
+                Practice-Link Bridge
+              </span>
+            </div>
+            <h2 className="text-xl font-extrabold text-white tracking-tight">
+              Direct Practical Applications &amp; Forensic Case Connections
+            </h2>
+            <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
+              Scientific concepts come alive when you test them against physical reality. Based on <strong>{concept.title}</strong>, explore these hand-curated Science Detective cases and senior secondary laboratory practicals.
+            </p>
+          </div>
+
+          {/* Suggested Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {practiceSuggestions.map((item) => {
+              const isDetective = item.type === 'detective';
+              const Icon = isDetective ? ShieldAlert : FlaskConical;
+
+              return (
+                <div
+                  key={item.id}
+                  className="bg-[#131E36] rounded-2xl border border-slate-800/90 hover:border-cyan-500/50 transition-all p-5 shadow-lg flex flex-col justify-between space-y-4 group"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          isDetective
+                            ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                            : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        }`}
+                      >
+                        {item.categoryBadge}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 capitalize">
+                        {item.subject}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                          isDetective
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                            : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-sm group-hover:text-cyan-300 transition leading-snug">
+                          {item.title}
+                        </h4>
+                        <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
+                          {item.gradeLevel}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
+                      <span className="text-[10px] text-cyan-400 font-mono font-bold block uppercase">
+                        Why Practice This:
+                      </span>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        {item.whyPractice}
+                      </p>
+                    </div>
+
+                    <div className="text-[10px] font-mono text-slate-400">
+                      <strong className="text-slate-300 font-sans">Core Skill:</strong> {item.keySkill}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (isDetective && onOpenDetectiveCase) {
+                        onOpenDetectiveCase(item.targetId);
+                      } else if (!isDetective && onOpenPractical) {
+                        onOpenPractical(item.targetId);
+                      }
+                    }}
+                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md ${
+                      isDetective
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/10'
+                        : 'bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 shadow-cyan-500/10'
+                    }`}
+                  >
+                    <span>{item.actionText}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Docked Practice-Link Recommendation Footer Bar (visible on all tabs when not on practice tab) */}
+      {activeTab !== 'practice' && (
+        <div className="bg-gradient-to-r from-[#131E36] via-[#101b33] to-[#152342] rounded-2xl border border-cyan-500/30 p-4 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white tracking-wide">
+                  Practice-Link Recommendations
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
+                  {practiceSuggestions.length} Available
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Apply this theoretical concept directly in forensic investigation cases and laboratory practicals.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            {practiceSuggestions.slice(0, 2).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (item.type === 'detective' && onOpenDetectiveCase) {
+                    onOpenDetectiveCase(item.targetId);
+                  } else if (item.type === 'practical' && onOpenPractical) {
+                    onOpenPractical(item.targetId);
+                  }
+                }}
+                className={`flex-1 md:flex-none px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border truncate ${
+                  item.type === 'detective'
+                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
+                    : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20'
+                }`}
+                title={item.title}
+              >
+                <span className="truncate max-w-[140px]">{item.title}</span>
+                <ArrowRight className="w-3 h-3 shrink-0" />
+              </button>
+            ))}
+
+            <button
+              onClick={() => setActiveTab('practice')}
+              className="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center gap-1 whitespace-nowrap shrink-0"
+            >
+              <span>View All Links</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

@@ -56,9 +56,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [selectedPracticalId, setSelectedPracticalId] = useState<string | null>(null);
   const [isAITutorOpen, setIsAITutorOpen] = useState(false);
   const [tutorInitialQuestion, setTutorInitialQuestion] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleOpenPractical = (practicalId: string) => {
+    setSelectedPracticalId(practicalId);
+    setActiveTab('practicals');
+  };
 
   // Authentication & User Profile State: Prompts for login or guest account upon opening
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
@@ -568,6 +574,11 @@ export default function App() {
                 scienceCredits={progress.scienceCredits || 0}
                 onEarnCredits={handleEarnCredits}
                 onMasterConcept={handleMasterConcept}
+                onOpenDetectiveCase={(caseId) => {
+                  setSelectedCaseId(caseId);
+                  setActiveTab('detective');
+                }}
+                onOpenPractical={handleOpenPractical}
               />
             ) : (
               <ConceptLibraryView
@@ -583,6 +594,7 @@ export default function App() {
         {/* TAB: SENIOR SECONDARY PRACTICAL LAB BENCH (Classes 11 & 12) */}
         {activeTab === 'practicals' && (
           <PracticalLabView
+            initialExperimentId={selectedPracticalId || undefined}
             onOpenTutorWithQuestion={(question) => {
               setTutorInitialQuestion(question);
               setIsAITutorOpen(true);
