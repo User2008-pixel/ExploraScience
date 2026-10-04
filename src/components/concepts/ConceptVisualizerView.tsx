@@ -28,6 +28,14 @@ import { CellOsmosisSim } from '../simulations/CellOsmosisSim';
 import { Class9ChemistrySim } from '../simulations/Class9ChemistrySim';
 import { Class9BiologySim } from '../simulations/Class9BiologySim';
 import { Class10PhysicsSim } from '../simulations/Class10PhysicsSim';
+import { Class11PhysicsSim } from '../simulations/Class11PhysicsSim';
+import { Class12PhysicsSim } from '../simulations/Class12PhysicsSim';
+import { Class10ChemistrySim } from '../simulations/Class10ChemistrySim';
+import { Class11ChemistrySim } from '../simulations/Class11ChemistrySim';
+import { Class12ChemistrySim } from '../simulations/Class12ChemistrySim';
+import { Class10BiologySim } from '../simulations/Class10BiologySim';
+import { Class11BiologySim } from '../simulations/Class11BiologySim';
+import { Class12BiologySim } from '../simulations/Class12BiologySim';
 import {
   BookOpen,
   Eye,
@@ -300,8 +308,72 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
             variables={varValues}
           />
         );
+      case 'class11-physics':
+        return (
+          <Class11PhysicsSim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class12-physics':
+        return (
+          <Class12PhysicsSim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class10-chemistry':
+        return (
+          <Class10ChemistrySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class11-chemistry':
+        return (
+          <Class11ChemistrySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class12-chemistry':
+        return (
+          <Class12ChemistrySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class10-biology':
+        return (
+          <Class10BiologySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class11-biology':
+        return (
+          <Class11BiologySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
+      case 'class12-biology':
+        return (
+          <Class12BiologySim
+            simulationType={concept.simulationType}
+            conceptId={concept.id}
+            variables={varValues}
+          />
+        );
       default:
-        // Automatic routing for Class 9 chemistry & biology and Class 10 physics
+        // Automatic routing for all grades and subjects
         if (concept.gradeLevel === 'Class 9' && concept.subject === 'chemistry') {
           return (
             <Class9ChemistrySim
@@ -323,6 +395,78 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
         if (concept.gradeLevel === 'Class 10' && concept.subject === 'physics') {
           return (
             <Class10PhysicsSim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 11' && concept.subject === 'physics') {
+          return (
+            <Class11PhysicsSim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 12' && concept.subject === 'physics') {
+          return (
+            <Class12PhysicsSim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 10' && concept.subject === 'chemistry') {
+          return (
+            <Class10ChemistrySim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 11' && concept.subject === 'chemistry') {
+          return (
+            <Class11ChemistrySim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 12' && concept.subject === 'chemistry') {
+          return (
+            <Class12ChemistrySim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 10' && concept.subject === 'biology') {
+          return (
+            <Class10BiologySim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 11' && concept.subject === 'biology') {
+          return (
+            <Class11BiologySim
+              simulationType={concept.simulationType}
+              conceptId={concept.id}
+              variables={varValues}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 12' && concept.subject === 'biology') {
+          return (
+            <Class12BiologySim
               simulationType={concept.simulationType}
               conceptId={concept.id}
               variables={varValues}

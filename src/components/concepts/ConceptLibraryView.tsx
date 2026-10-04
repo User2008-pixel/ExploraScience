@@ -19,19 +19,19 @@ export const ConceptLibraryView: React.FC<ConceptLibraryViewProps> = ({
   onUpdateGrade,
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<Subject | 'all'>('all');
-  const [selectedGrade, setSelectedGrade] = useState<GradeLevel>(userGrade);
+  const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>(userGrade);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     setSelectedGrade(userGrade);
   }, [userGrade]);
 
-  const activeGrade = userGrade || selectedGrade;
+  const activeGrade = selectedGrade;
 
   const filteredConcepts = CONCEPTS_DATA.filter((c) => {
     if (selectedSubject !== 'all' && c.subject !== selectedSubject) return false;
-    // Strictly show only the material of the selected class
-    if (c.gradeLevel !== activeGrade) return false;
+    // Show selected class or all classes
+    if (activeGrade !== 'all' && c.gradeLevel !== activeGrade) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
@@ -107,12 +107,13 @@ export const ConceptLibraryView: React.FC<ConceptLibraryViewProps> = ({
           <select
             value={activeGrade}
             onChange={(e) => {
-              const newG = e.target.value as GradeLevel;
+              const newG = e.target.value as GradeLevel | 'all';
               setSelectedGrade(newG);
-              if (onUpdateGrade) onUpdateGrade(newG);
+              if (onUpdateGrade && newG !== 'all') onUpdateGrade(newG);
             }}
             className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-bold focus:outline-none focus:border-cyan-400"
           >
+            <option value="all">All Classes (9–12)</option>
             <option value="Class 9">Class 9 Only</option>
             <option value="Class 10">Class 10 Only</option>
             <option value="Class 11">Class 11 Only</option>

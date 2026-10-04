@@ -121,9 +121,13 @@ export const DetectiveDirectoryView: React.FC<DetectiveDirectoryViewProps> = ({
                       {c.subject} • {c.difficulty}
                     </span>
                   </div>
-                  {isSolved && (
+                  {isSolved ? (
                     <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/60">
-                      <CheckCircle2 className="w-3 h-3" /> Solved
+                      <CheckCircle2 className="w-3 h-3" /> Solved (1x Credits Claimed)
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/40">
+                      +100-150 ⚛️ Credits (First Completion)
                     </span>
                   )}
                 </div>

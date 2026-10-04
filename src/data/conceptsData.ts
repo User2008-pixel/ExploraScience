@@ -2,6 +2,14 @@ import { ConceptItem } from '../types/science';
 import { NCERT_CLASS9_CHEMISTRY_CONCEPTS } from './ncertClass9ChemistryData';
 import { NCERT_CLASS9_BIOLOGY_CONCEPTS } from './ncertClass9BiologyData';
 import { NCERT_CLASS10_PHYSICS_CONCEPTS } from './ncertClass10PhysicsData';
+import { NCERT_CLASS11_PHYSICS_CONCEPTS } from './ncertClass11PhysicsData';
+import { NCERT_CLASS12_PHYSICS_CONCEPTS } from './ncertClass12PhysicsData';
+import { NCERT_CLASS10_CHEMISTRY_CONCEPTS } from './ncertClass10ChemistryData';
+import { NCERT_CLASS11_CHEMISTRY_CONCEPTS } from './ncertClass11ChemistryData';
+import { NCERT_CLASS12_CHEMISTRY_CONCEPTS } from './ncertClass12ChemistryData';
+import { NCERT_CLASS10_BIOLOGY_CONCEPTS } from './ncertClass10BiologyData';
+import { NCERT_CLASS11_BIOLOGY_CONCEPTS } from './ncertClass11BiologyData';
+import { NCERT_CLASS12_BIOLOGY_CONCEPTS } from './ncertClass12BiologyData';
 
 export const CONCEPTS_DATA: ConceptItem[] = [
   // --- PHYSICS ---
@@ -5369,5 +5377,13 @@ export const CONCEPTS_DATA: ConceptItem[] = [
   ...NCERT_CLASS9_CHEMISTRY_CONCEPTS,
   ...NCERT_CLASS9_BIOLOGY_CONCEPTS,
   ...NCERT_CLASS10_PHYSICS_CONCEPTS,
+  ...NCERT_CLASS11_PHYSICS_CONCEPTS,
+  ...NCERT_CLASS12_PHYSICS_CONCEPTS,
+  ...NCERT_CLASS10_CHEMISTRY_CONCEPTS,
+  ...NCERT_CLASS11_CHEMISTRY_CONCEPTS,
+  ...NCERT_CLASS12_CHEMISTRY_CONCEPTS,
+  ...NCERT_CLASS10_BIOLOGY_CONCEPTS,
+  ...NCERT_CLASS11_BIOLOGY_CONCEPTS,
+  ...NCERT_CLASS12_BIOLOGY_CONCEPTS,
 ];
 

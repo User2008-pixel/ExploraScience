@@ -251,24 +251,37 @@ export default function App() {
       return;
     }
 
-    // Check if this case was already completed previously
-    const isAlreadyCompleted = progress.completedInvestigations.some((x) => x.caseId === summary.caseId);
+    // Check if this case was already completed previously and award credits strictly ONCE ever
+    let earnedThisTime = 0;
 
-    // Award Science Credits strictly ONCE per investigation case (base 100 + score bonus up to 50)
-    const baseCredits = 100;
-    const bonusCredits = Math.round((summary.understandingScore / 100) * 50);
-    const totalEarnedCredits = isAlreadyCompleted ? 0 : baseCredits + bonusCredits;
+    setProgress((prev) => {
+      const isAlreadyCompleted = (prev.completedInvestigations || []).some((x) => x.caseId === summary.caseId);
+      if (isAlreadyCompleted) {
+        // Repeated investigation completion: strictly award 0 credits
+        earnedThisTime = 0;
+        return {
+          ...prev,
+          completedInvestigations: [newRecord, ...prev.completedInvestigations.filter((x) => x.caseId !== summary.caseId)],
+          mistakesHistory: [...newMistakeRecords, ...prev.mistakesHistory],
+        };
+      }
 
-    setProgress((prev) => ({
-      ...prev,
-      scienceCredits: (prev.scienceCredits || 0) + totalEarnedCredits,
-      completedInvestigations: [newRecord, ...prev.completedInvestigations.filter((x) => x.caseId !== summary.caseId)],
-      mistakesHistory: [...newMistakeRecords, ...prev.mistakesHistory],
-    }));
+      // First-time completion only: base 100 + score bonus up to 50
+      const baseCredits = 100;
+      const bonusCredits = Math.round((summary.understandingScore / 100) * 50);
+      earnedThisTime = baseCredits + bonusCredits;
 
-    if (totalEarnedCredits > 0) {
-      setRewardToastAmount(totalEarnedCredits);
-      setRewardToastReason(`Completed "${summary.caseTitle}" with ${summary.understandingScore}% accuracy! (First-Time Investigation Reward)`);
+      return {
+        ...prev,
+        scienceCredits: (prev.scienceCredits || 0) + earnedThisTime,
+        completedInvestigations: [newRecord, ...prev.completedInvestigations],
+        mistakesHistory: [...newMistakeRecords, ...prev.mistakesHistory],
+      };
+    });
+
+    if (earnedThisTime > 0) {
+      setRewardToastAmount(earnedThisTime);
+      setRewardToastReason(`Completed "${summary.caseTitle}" with ${summary.understandingScore}% accuracy! (One-Time Investigation Credit Awarded)`);
     } else {
       setRewardToastAmount(null);
     }
