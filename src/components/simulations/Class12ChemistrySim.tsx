@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Layers,
   Thermometer,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface Class12ChemistrySimProps {
@@ -65,38 +66,89 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
   }, [isPlaying, simSpeed]);
 
   // ----------------------------------------------------------------------
-  // MODE 1: SOLUTIONS & COLLIGATIVE PROPERTIES
+  // MODE 1: SOLUTIONS & COLLIGATIVE PROPERTIES (Manipulative)
   // ----------------------------------------------------------------------
   const [molalityM, setMolalityM] = useState<number>(variables.soluteMolality ?? 1.0);
   const [soluteType, setSoluteType] = useState<'glucose' | 'nacl' | 'cacl2'>('nacl');
   const vantHoffFactorI = soluteType === 'glucose' ? 1 : soluteType === 'nacl' ? 2 : 3;
   const kbWater = 0.52; // K kg / mol
+  const kfWater = 1.86; // K kg / mol
   const deltaTb = vantHoffFactorI * kbWater * molalityM;
+  const deltaTf = vantHoffFactorI * kfWater * molalityM;
   const boilingPointC = 100 + deltaTb;
+  const freezingPointC = 0 - deltaTf;
+  const osmoticPressureAtm = (vantHoffFactorI * molalityM * 0.0821 * 298).toFixed(1);
 
   // ----------------------------------------------------------------------
-  // MODE 2: ELECTROCHEMISTRY & DANIELL CELL NERNST
+  // MODE 2: ELECTROCHEMISTRY & DANIELL CELL NERNST (Manipulative)
   // ----------------------------------------------------------------------
-  const [znConc, setZnConc] = useState<number>(variables.anodeConcentration ?? 0.1);
-  const [cuConc, setCuConc] = useState<number>(variables.cathodeConcentration ?? 1.0);
-  const eZeroCell = 1.10; // Volts for Zn/Cu
-  const cellEmf = Math.round((eZeroCell - (0.0591 / 2) * Math.log10(znConc / cuConc)) * 1000) / 1000;
+  const [anodeConc, setAnodeConc] = useState<number>(variables.anodeConcentration ?? 0.1);
+  const [cathodeConc, setCathodeConc] = useState<number>(variables.cathodeConcentration ?? 1.0);
+  const [cellTempK, setCellTempK] = useState<number>(298);
+  const [cellPair, setCellPair] = useState<'Zn-Cu' | 'Cu-Ag' | 'Ni-Cu'>('Zn-Cu');
+
+  const eZeroMap = {
+    'Zn-Cu': { e0: 1.10, n: 2, anode: 'Zn', cathode: 'Cu' },
+    'Cu-Ag': { e0: 0.46, n: 2, anode: 'Cu', cathode: 'Ag' },
+    'Ni-Cu': { e0: 0.59, n: 2, anode: 'Ni', cathode: 'Cu' },
+  };
+  const activePairInfo = eZeroMap[cellPair];
+  const qRatio = anodeConc / cathodeConc;
+  const cellEmf = Math.round(
+    (activePairInfo.e0 - ((8.314 * cellTempK) / (activePairInfo.n * 96485)) * 2.303 * Math.log10(qRatio)) * 1000
+  ) / 1000;
 
   // ----------------------------------------------------------------------
-  // MODE 3: KINETICS & ARRHENIUS ACTIVATION ENERGY
+  // MODE 3: KINETICS & ARRHENIUS ACTIVATION ENERGY (Manipulative)
   // ----------------------------------------------------------------------
   const [tempKelvin, setTempKelvin] = useState<number>(variables.temperature ?? 300);
+  const [eaVal, setEaVal] = useState<number>(55); // kJ/mol
   const [hasCatalyst, setHasCatalyst] = useState<boolean>(false);
-  const eaUncatalyzed = 60; // kJ/mol
-  const eaEffective = hasCatalyst ? 35 : eaUncatalyzed;
+  const eaEffective = hasCatalyst ? Math.max(15, eaVal - 22) : eaVal;
   const gasConstR = 8.314e-3; // kJ / (mol K)
   const rateConstantK = Math.exp(-eaEffective / (gasConstR * tempKelvin)) * 1e5;
 
   // ----------------------------------------------------------------------
-  // MODE 4: COORDINATION COMPOUNDS & CRYSTAL FIELD THEORY
+  // MODE 4: COORDINATION COMPOUNDS & CFT (Completely Manipulative with Electrons)
   // ----------------------------------------------------------------------
-  const [dElectronCount, setDElectronCount] = useState<number>(6); // Fe2+ d6
+  const [dElectronCount, setDElectronCount] = useState<number>(6); // d1 to d10
   const [ligandField, setLigandField] = useState<'weak' | 'strong'>('strong'); // high vs low spin
+
+  // Compute distribution of electrons into t2g (lower 3 orbitals) and eg (upper 2 orbitals)
+  const calculateElectronDistribution = () => {
+    let t2gCount = 0;
+    let egCount = 0;
+
+    if (ligandField === 'strong') {
+      // Low spin: fills t2g up to 6 before placing in eg
+      t2gCount = Math.min(6, dElectronCount);
+      egCount = Math.max(0, dElectronCount - 6);
+    } else {
+      // Weak spin: follows Hund's rule across all 5 orbitals (d1-d5 each get 1, then pair up)
+      if (dElectronCount <= 3) {
+        t2gCount = dElectronCount;
+        egCount = 0;
+      } else if (dElectronCount <= 5) {
+        t2gCount = 3;
+        egCount = dElectronCount - 3;
+      } else {
+        // d6-d10
+        t2gCount = 3 + Math.min(3, dElectronCount - 5);
+        egCount = 2 + Math.max(0, dElectronCount - 8);
+      }
+    }
+
+    // Compute unpaired electrons (n)
+    // t2g has 3 orbitals: paired count = max(0, t2gCount - 3)
+    const t2gUnpaired = t2gCount <= 3 ? t2gCount : 6 - t2gCount;
+    const egUnpaired = egCount <= 2 ? egCount : 4 - egCount;
+    const totalUnpaired = t2gUnpaired + egUnpaired;
+    const spinOnlyMoment = Math.sqrt(totalUnpaired * (totalUnpaired + 2)).toFixed(2);
+
+    return { t2gCount, egCount, totalUnpaired, spinOnlyMoment };
+  };
+
+  const cftStats = calculateElectronDistribution();
 
   return (
     <div className="bg-[#0b1329] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-6">
@@ -117,7 +169,7 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
               </h3>
             </div>
             <p className="text-xs text-slate-400">
-              Live Galvanic Nernst cell, colligative Raoult osmosis, Arrhenius collision activation & CFT crystal field splitting
+              Live Galvanic Nernst cell, colligative Raoult osmosis, Arrhenius collision activation &amp; CFT crystal field splitting
             </p>
           </div>
         </div>
@@ -158,17 +210,17 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-2">
         {[
-          { id: 'solutions-colligative', label: '1. Colligative & Osmosis' },
-          { id: 'electrochemistry-nernst', label: '2. Nernst Galvanic Cell' },
+          { id: 'solutions-colligative', label: '1. Solutions & Colligative' },
+          { id: 'electrochemistry-nernst', label: '2. Nernst Electrochemistry' },
           { id: 'kinetics-arrhenius', label: '3. Arrhenius Kinetics' },
-          { id: 'coordination-cft', label: '4. Crystal Field Theory' },
+          { id: 'coordination-cft', label: '4. Coordination CFT Splitting' },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveMode(tab.id as Chem12Mode)}
             className={`px-3 py-1.5 rounded-xl font-semibold transition text-xs ${
               activeMode === tab.id
-                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-bold shadow-md shadow-amber-500/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-slate-800'
             }`}
           >
@@ -183,81 +235,82 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
       {activeMode === 'solutions-colligative' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-cyan-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                <span>SEMI-PERMEABLE MEMBRANE & OSMOTIC LIQUID COLUMN</span>
+                <span>COLLIGATIVE: ΔTb = +{deltaTb.toFixed(2)}°C | ΔTf = -{deltaTf.toFixed(2)}°C</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
-                {/* U-Tube Vessel */}
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
+                {/* U-Tube Osmometer with Semi-Permeable Membrane */}
                 <path
-                  d="M 120,40 L 120,160 Q 120,190 150,190 L 250,190 Q 280,190 280,160 L 280,40"
+                  d="M 120,40 L 120,160 Q 120,185 160,185 L 260,185 Q 300,185 300,160 L 300,40"
                   fill="none"
-                  stroke="#475569"
-                  strokeWidth="6"
+                  stroke="#64748b"
+                  strokeWidth="8"
                 />
 
-                {/* Semi-permeable Membrane at center */}
-                <line x1="200" y1="165" x2="200" y2="190" stroke="#f59e0b" strokeWidth="4" strokeDasharray="3 2" />
-                <text x="200" y="206" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">SPM</text>
+                {/* Semipermeable membrane vertical divider at center bottom */}
+                <line x1="210" y1="160" x2="210" y2="185" stroke="#facc15" strokeWidth="4" strokeDasharray="3 2" />
+                <text x="210" y="200" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">SPM</text>
 
-                {/* Pure Solvent Left Column */}
-                <rect x="123" y="100" width="34" height="65" fill="#38bdf8" fillOpacity="0.5" />
-                {/* Solution Right Column (Elevated by Osmotic Pressure) */}
+                {/* Left Arm: Pure Solvent (Water) */}
+                <rect x="124" y="110" width="30" height="60" fill="#38bdf8" fillOpacity="0.5" />
+                <text x="140" y="80" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle">Pure H₂O</text>
+
+                {/* Right Arm: Solution with osmotic liquid rise h */}
                 {(() => {
-                  const osmoticHeight = 100 - molalityM * vantHoffFactorI * 12;
+                  const riseH = Math.min(65, molalityM * vantHoffFactorI * 18);
+                  const rightY = 110 - riseH;
                   return (
                     <g>
-                      <rect x="243" y={osmoticHeight} width="34" height={165 - osmoticHeight} fill="#38bdf8" fillOpacity="0.7" />
-                      {/* Solute particles floating in right column */}
-                      {Array.from({ length: 12 }).map((_, i) => (
+                      <rect x="266" y={rightY} width="30" height={60 + riseH} fill="#f59e0b" fillOpacity="0.6" />
+                      <text x="280" y={rightY - 10} fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
+                        Solution (+{riseH}px)
+                      </text>
+                      {/* Dissolved Solute ions in solution */}
+                      {Array.from({ length: 8 }).map((_, i) => (
                         <circle
                           key={i}
-                          cx={250 + (i % 3) * 10}
-                          cy={osmoticHeight + 15 + ((i * 18 + animTime * 10) % (145 - osmoticHeight))}
+                          cx={272 + (i % 2) * 16}
+                          cy={rightY + 15 + i * 8}
                           r="3"
-                          fill="#facc15"
+                          fill="#ef4444"
                         />
                       ))}
-                      {/* Osmotic Head delta h */}
-                      <line x1="288" y1="100" x2="288" y2={osmoticHeight} stroke="#ec4899" strokeWidth="2" />
-                      <text x="315" y={(100 + osmoticHeight) / 2 + 3} fill="#ec4899" fontSize="9" fontWeight="bold">
-                        Δh (Π)
-                      </text>
                     </g>
                   );
                 })()}
 
-                {/* Column labels */}
-                <text x="140" y="30" fill="#38bdf8" fontSize="10" fontWeight="bold" textAnchor="middle">Pure Water</text>
-                <text x="260" y="30" fill="#facc15" fontSize="10" fontWeight="bold" textAnchor="middle">Solution</text>
+                <text x="210" y="30" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold" fontFamily="monospace">
+                  Osmotic Pressure Π = i·C·R·T = {osmoticPressureAtm} atm | i = {vantHoffFactorI} ({soluteType})
+                </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-amber-400 font-bold">van 't Hoff (i) = {vantHoffFactorI}</span>
-                <span className="text-rose-400 font-bold">ΔTb = +{deltaTb.toFixed(3)} °C</span>
-                <span className="text-cyan-400 font-bold">Boiling Point = {boilingPointC.toFixed(3)} °C</span>
+                <span className="text-cyan-400 font-bold">Boiling Pt: {boilingPointC.toFixed(2)}°C</span>
+                <span className="text-rose-400 font-bold">Freezing Pt: {freezingPointC.toFixed(2)}°C</span>
+                <span className="text-amber-400 font-bold">Osmotic Press: {osmoticPressureAtm} atm</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-amber-400 font-mono text-sm uppercase">Colligative Variables</h4>
+              <h4 className="font-bold text-amber-400 font-mono text-sm uppercase">Colligative Manipulations</h4>
 
               <div>
-                <span className="text-xs text-slate-400 mb-1.5 block">Solute Type:</span>
-                <div className="flex gap-1.5 text-xs">
+                <span className="text-xs text-slate-400 mb-1.5 block">Solute (Van 't Hoff Factor i):</span>
+                <div className="space-y-1.5 text-xs">
                   {[
-                    { id: 'glucose', name: 'Glucose (i=1)' },
-                    { id: 'nacl', name: 'NaCl (i=2)' },
-                    { id: 'cacl2', name: 'CaCl₂ (i=3)' },
+                    { id: 'glucose', name: 'Glucose (i = 1, Non-electrolyte)' },
+                    { id: 'nacl', name: 'NaCl (i = 2, Dissociates 1Na⁺ + 1Cl⁻)' },
+                    { id: 'cacl2', name: 'CaCl₂ (i = 3, Dissociates 1Ca²⁺ + 2Cl⁻)' },
                   ].map((s) => (
                     <button
                       key={s.id}
                       onClick={() => setSoluteType(s.id as any)}
-                      className={`flex-1 p-1.5 rounded-lg font-bold transition border ${
+                      className={`w-full text-left px-3 py-1.5 rounded-xl transition border ${
                         soluteType === s.id
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm font-bold'
                           : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                       }`}
                     >
@@ -269,25 +322,18 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
 
               <div>
                 <div className="flex justify-between text-xs mb-1 font-mono">
-                  <span className="text-slate-300">Molality (m):</span>
+                  <span className="text-slate-300">Solute Molality (m):</span>
                   <span className="text-amber-400 font-bold">{molalityM.toFixed(1)} mol/kg</span>
                 </div>
                 <input
                   type="range"
-                  min="0.2"
+                  min="0.1"
                   max="3.0"
                   step="0.1"
                   value={molalityM}
-                  onChange={(e) => setMolalityM(parseFloat(e.target.value))}
+                  onChange={(e) => setMolalityM(Number(e.target.value))}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
-              </div>
-
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-amber-400">NCERT Colligative Laws:</div>
-                <p>
-                  Colligative properties depend solely on the <em>number of solute particles</em>, not their chemical nature. Osmotic pressure: Π = i C R T.
-                </p>
               </div>
             </div>
           </div>
@@ -295,116 +341,135 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 2. ELECTROCHEMISTRY & NERNST DANIELL CELL */}
+      {/* 2. ELECTROCHEMISTRY & DANIELL CELL NERNST EQUATION */}
       {/* ============================================================== */}
       {activeMode === 'electrochemistry-nernst' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-emerald-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>LIVE DANIELL CELL & ELECTRON CURRENT MIGRATION</span>
+                <span>VOLTMETER: {cellEmf.toFixed(3)} V (E° = {activePairInfo.e0} V)</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
-                {/* Left Beaker: Zinc Half Cell */}
-                <rect x="60" y="90" width="110" height="95" rx="6" fill="#1e293b" stroke="#475569" strokeWidth="2" />
-                <rect x="62" y="115" width="106" height="68" rx="4" fill="#94a3b8" fillOpacity="0.4" />
-                {/* Zinc Electrode (Anode -) */}
-                <rect x="95" y="65" width="18" height="90" fill="#94a3b8" stroke="#cbd5e1" strokeWidth="1.5" />
-                <text x="104" y="60" fill="#94a3b8" fontSize="10" fontWeight="bold" textAnchor="middle">Zn Anode (-)</text>
-
-                {/* Right Beaker: Copper Half Cell */}
-                <rect x="230" y="90" width="110" height="95" rx="6" fill="#1e293b" stroke="#475569" strokeWidth="2" />
-                <rect x="232" y="115" width="106" height="68" rx="4" fill="#0284c7" fillOpacity="0.5" />
-                {/* Copper Electrode (Cathode +) */}
-                <rect x="285" y="65" width="18" height="90" fill="#b45309" stroke="#f59e0b" strokeWidth="1.5" />
-                <text x="294" y="60" fill="#f59e0b" fontSize="10" fontWeight="bold" textAnchor="middle">Cu Cathode (+)</text>
-
-                {/* Inverted U-Tube Salt Bridge */}
-                <path
-                  d="M 140,140 L 140,85 Q 140,75 150,75 L 250,75 Q 260,75 260,85 L 260,140"
-                  fill="none"
-                  stroke="#38bdf8"
-                  strokeWidth="8"
-                  strokeOpacity="0.6"
-                />
-                <text x="200" y="70" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle">KNO₃ Salt Bridge</text>
-
-                {/* External Circuit Wire */}
-                <path d="M 104,65 L 104,25 L 180,25" fill="none" stroke="#facc15" strokeWidth="2" />
-                <path d="M 220,25 L 294,25 L 294,65" fill="none" stroke="#facc15" strokeWidth="2" />
-
-                {/* Digital Voltmeter in Middle */}
-                <circle cx="200" cy="25" r="18" fill="#0f172a" stroke="#facc15" strokeWidth="2" />
-                <text x="200" y="29" fill="#facc15" fontSize="9" fontWeight="bold" textAnchor="middle">
-                  {cellEmf}V
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
+                {/* Anode Half-Cell (Left) */}
+                <rect x="70" y="80" width="80" height="90" rx="6" fill="#1e3a8a30" stroke="#3b82f6" strokeWidth="2" />
+                <rect x="95" y="50" width="16" height="80" fill="#94a3b8" stroke="#ffffff" strokeWidth="1" />
+                <text x="103" y="42" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  Anode ({activePairInfo.anode})
                 </text>
 
-                {/* Flowing electrons along wire */}
+                {/* Salt Bridge linking both cells */}
+                <path d="M 130,100 L 130,55 L 290,55 L 290,100" fill="none" stroke="#facc15" strokeWidth="8" strokeLinecap="round" opacity="0.8" />
+                <text x="210" y="50" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  KCl / Agar-Agar Salt Bridge
+                </text>
+
+                {/* Digital Voltmeter in wire circuit */}
+                <path d="M 103,45 L 103,20 L 317,20 L 317,45" fill="none" stroke="#64748b" strokeWidth="2" />
+                <g transform="translate(210, 20)">
+                  <circle cx="0" cy="0" r="16" fill="#020617" stroke="#10b981" strokeWidth="2" />
+                  <text x="0" y="4" fill="#10b981" fontSize="9" fontWeight="bold" textAnchor="middle">
+                    {cellEmf.toFixed(2)}V
+                  </text>
+                </g>
+
+                {/* Cathode Half-Cell (Right) */}
+                <rect x="270" y="80" width="80" height="90" rx="6" fill="#0284c730" stroke="#0284c7" strokeWidth="2" />
+                <rect x="309" y="50" width="16" height="80" fill="#b45309" stroke="#ffffff" strokeWidth="1" />
+                <text x="317" y="42" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  Cathode ({activePairInfo.cathode})
+                </text>
+
+                {/* Electron flow arrow on top wire */}
                 {(() => {
-                  const eT = (animTime * 1.5) % 1;
-                  const eX = 104 + eT * (294 - 104);
+                  const ePos = 110 + ((animTime * 120) % 190);
                   return (
-                    <g>
-                      <circle cx={eX} cy="25" r="3.5" fill="#38bdf8" className="animate-pulse" />
-                    </g>
+                    <circle cx={ePos} cy="20" r="3" fill="#facc15" className="animate-pulse" />
                   );
                 })()}
 
-                {/* Chemical Equations */}
-                <text x="200" y="205" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  Zn(s) + Cu²⁺(aq) ➔ Zn²⁺(aq) + Cu(s) | E° = 1.10 V
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  Nernst: E_cell = E° - (0.0591/n) · log₁₀([{activePairInfo.anode}²⁺] / [{activePairInfo.cathode}²⁺]) = {cellEmf.toFixed(3)} V
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-emerald-400 font-bold">Cell EMF: {cellEmf} V</span>
-                <span className="text-cyan-400 font-bold">[Zn²⁺]: {znConc} M</span>
-                <span className="text-amber-400 font-bold">[Cu²⁺]: {cuConc} M</span>
+                <span className="text-emerald-400 font-bold">EMF: {cellEmf.toFixed(3)} V</span>
+                <span className="text-cyan-400 font-bold">Anode: {anodeConc} M</span>
+                <span className="text-amber-400 font-bold">Cathode: {cathodeConc} M</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-emerald-400 font-mono text-sm uppercase">Nernst Controls</h4>
+              <h4 className="font-bold text-emerald-400 font-mono text-sm uppercase">Galvanic Cell Controls</h4>
+
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Electrode Couple:</span>
+                <div className="grid grid-cols-3 gap-1.5 text-xs font-bold">
+                  {(['Zn-Cu', 'Cu-Ag', 'Ni-Cu'] as const).map((pair) => (
+                    <button
+                      key={pair}
+                      onClick={() => setCellPair(pair)}
+                      className={`p-1.5 rounded-xl transition border text-center ${
+                        cellPair === pair
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                          : 'bg-slate-950 text-slate-400 border-slate-800'
+                      }`}
+                    >
+                      {pair}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <div className="flex justify-between text-xs mb-1 font-mono">
-                  <span className="text-slate-300">Anode [Zn²⁺]:</span>
-                  <span className="text-cyan-400 font-bold">{znConc} M</span>
+                  <span className="text-slate-300">Anode [{activePairInfo.anode}²⁺] Conc:</span>
+                  <span className="text-cyan-400 font-bold">{anodeConc} M</span>
                 </div>
                 <input
                   type="range"
                   min="0.01"
                   max="2.0"
-                  step="0.01"
-                  value={znConc}
-                  onChange={(e) => setZnConc(parseFloat(e.target.value))}
+                  step="0.05"
+                  value={anodeConc}
+                  onChange={(e) => setAnodeConc(Number(e.target.value))}
                   className="w-full accent-cyan-500 cursor-pointer"
                 />
               </div>
 
               <div>
                 <div className="flex justify-between text-xs mb-1 font-mono">
-                  <span className="text-slate-300">Cathode [Cu²⁺]:</span>
-                  <span className="text-amber-400 font-bold">{cuConc} M</span>
+                  <span className="text-slate-300">Cathode [{activePairInfo.cathode}²⁺] Conc:</span>
+                  <span className="text-amber-400 font-bold">{cathodeConc} M</span>
                 </div>
                 <input
                   type="range"
                   min="0.01"
                   max="2.0"
-                  step="0.01"
-                  value={cuConc}
-                  onChange={(e) => setCuConc(parseFloat(e.target.value))}
+                  step="0.05"
+                  value={cathodeConc}
+                  onChange={(e) => setCathodeConc(Number(e.target.value))}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-emerald-400">Nernst Equation:</div>
-                <p>
-                  E_cell = E°_cell - (0.0591 / 2) · log([Zn²⁺] / [Cu²⁺]). Increasing [Cu²⁺] increases cell voltage; increasing [Zn²⁺] decreases voltage.
-                </p>
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">Cell Temp (T):</span>
+                  <span className="text-rose-400 font-bold">{cellTempK} K</span>
+                </div>
+                <input
+                  type="range"
+                  min="273"
+                  max="350"
+                  step="5"
+                  value={cellTempK}
+                  onChange={(e) => setCellTempK(Number(e.target.value))}
+                  className="w-full accent-rose-500 cursor-pointer"
+                />
               </div>
             </div>
           </div>
@@ -412,79 +477,67 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 3. CHEMICAL KINETICS & ARRHENIUS EQUATION */}
+      {/* 3. KINETICS & ARRHENIUS ACTIVATION ENERGY */}
       {/* ============================================================== */}
       {activeMode === 'kinetics-arrhenius' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-rose-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
-                <span>MAXWELL-BOLTZMANN ENERGY DISTRIBUTION & ACTIVATION BARRIER</span>
+                <span>ARRHENIUS KINETICS: Ea = {eaEffective} kJ/mol | T = {tempKelvin} K</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
                 {/* Axes */}
-                <line x1="50" y1="180" x2="360" y2="180" stroke="#475569" strokeWidth="2" />
+                <line x1="50" y1="180" x2="380" y2="180" stroke="#475569" strokeWidth="2" />
                 <line x1="50" y1="180" x2="50" y2="30" stroke="#475569" strokeWidth="2" />
-                <text x="360" y="195" fill="#94a3b8" fontSize="9" textAnchor="end">Kinetic Energy (E)</text>
+                <text x="380" y="195" fill="#94a3b8" fontSize="9" textAnchor="end">Molecular Kinetic Energy (E)</text>
                 <text x="45" y="25" fill="#94a3b8" fontSize="9" textAnchor="end">Fraction of Molecules</text>
 
-                {/* Maxwell Boltzmann Bell Curves */}
-                {/* Peak shifts right and flattens with higher temperature */}
+                {/* Maxwell-Boltzmann Distribution Curve */}
                 {(() => {
-                  const peakX = 110 + (tempKelvin - 300) * 0.15;
-                  const peakY = 80 + (tempKelvin - 300) * 0.1;
-                  const curvePath = `M 50,180 Q ${peakX},${peakY - 40} 240,160 T 360,178`;
-                  const barrierX = hasCatalyst ? 210 : 260;
+                  let d = 'M 50,180';
+                  const peakE = 40 + (tempKelvin - 280) * 0.25;
+                  for (let x = 50; x <= 370; x += 4) {
+                    const e = x - 50;
+                    const yVal = 180 - (Math.pow(e, 1.3) * Math.exp(-e / peakE)) * 2.8;
+                    d += ` L ${x},${Math.max(40, yVal)}`;
+                  }
+                  return (
+                    <path d={d} fill="none" stroke="#38bdf8" strokeWidth="2.5" />
+                  );
+                })()}
 
+                {/* Activation Energy Barrier Threshold Line */}
+                {(() => {
+                  const barrierX = 50 + eaEffective * 2.8;
                   return (
                     <g>
-                      <path d={curvePath} fill="none" stroke="#f59e0b" strokeWidth="2.5" />
-                      {/* Activation energy barrier line */}
-                      <line x1={barrierX} y1="30" x2={barrierX} y2="180" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 2" />
-                      <text x={barrierX} y="25" fill="#ef4444" fontSize="9" fontWeight="bold" textAnchor="middle">
-                        {hasCatalyst ? 'Ea (Catalyzed = 35 kJ)' : 'Ea (Uncatalyzed = 60 kJ)'}
+                      <line x1={barrierX} y1="35" x2={barrierX} y2="180" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 2" />
+                      <text x={barrierX} y="30" fill="#ef4444" fontSize="8" fontWeight="bold" textAnchor="middle">
+                        Ea = {eaEffective} kJ
                       </text>
-                      {/* Shaded reaction fraction */}
-                      <rect x={barrierX} y="30" width={360 - barrierX} height="150" fill="#ef4444" fillOpacity="0.2" />
+                      {/* Shaded reaction-ready fraction */}
+                      <rect x={barrierX} y="35" width={380 - barrierX} height="145" fill="#10b981" fillOpacity="0.2" />
                     </g>
                   );
                 })()}
 
-                {/* Bouncing reacting particles */}
-                {Array.from({ length: 12 }).map((_, i) => {
-                  const pSpeed = (tempKelvin / 300) * 20;
-                  const px = 60 + ((i * 31 + animTime * pSpeed) % 280);
-                  const py = 120 + Math.sin(animTime * 3 + i) * 35;
-                  const hasEa = px >= (hasCatalyst ? 210 : 260);
-
-                  return (
-                    <circle
-                      key={i}
-                      cx={px}
-                      cy={py}
-                      r={hasEa ? 5 : 3.5}
-                      fill={hasEa ? '#10b981' : '#38bdf8'}
-                      className={hasEa ? 'animate-pulse' : ''}
-                    />
-                  );
-                })}
-
-                <text x="200" y="208" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  Arrhenius: k = A · e^(-Ea / RT) | T = {tempKelvin} K
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  Rate constant k = A · e^(-Ea / RT) ➔ Relative Velocity = {rateConstantK.toFixed(1)}x
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
                 <span className="text-rose-400 font-bold">Barrier Ea = {eaEffective} kJ/mol</span>
                 <span className="text-amber-400 font-bold">Temp = {tempKelvin} K</span>
-                <span className="text-emerald-400 font-bold">Relative Rate = {rateConstantK.toFixed(2)}x</span>
+                <span className="text-emerald-400 font-bold">Effective Rate = {rateConstantK.toFixed(1)}x</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-rose-400 font-mono text-sm uppercase">Kinetics Controls</h4>
+              <h4 className="font-bold text-rose-400 font-mono text-sm uppercase">Kinetics Manipulations</h4>
 
               <div>
                 <div className="flex justify-between text-xs mb-1 font-mono">
@@ -502,129 +555,182 @@ export const Class12ChemistrySim: React.FC<Class12ChemistrySimProps> = ({
               </div>
 
               <div>
-                <button
-                  onClick={() => setHasCatalyst(!hasCatalyst)}
-                  className={`w-full py-2.5 rounded-xl font-bold text-xs transition border ${
-                    hasCatalyst
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                  }`}
-                >
-                  {hasCatalyst ? '✓ Catalyst Added (Lowers Ea)' : '+ Add Catalyst'}
-                </button>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">Uncatalyzed Barrier (Ea):</span>
+                  <span className="text-amber-400 font-bold">{eaVal} kJ/mol</span>
+                </div>
+                <input
+                  type="range"
+                  min="30"
+                  max="90"
+                  value={eaVal}
+                  onChange={(e) => setEaVal(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-rose-400">NCERT Arrhenius Rule:</div>
-                <p>
-                  A 10° rise in temperature approximately <strong>doubles</strong> the reaction rate due to a massive surge in the fraction of molecules possessing kinetic energy greater than $E_a$.
-                </p>
-              </div>
+              <button
+                onClick={() => setHasCatalyst(!hasCatalyst)}
+                className={`w-full py-2.5 rounded-xl font-bold text-xs transition border ${
+                  hasCatalyst
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+              >
+                {hasCatalyst ? '✓ Catalyst Added (Lowers Ea by 22 kJ)' : '+ Add Positive Catalyst'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================== */}
-      {/* 4. COORDINATION COMPOUNDS & CRYSTAL FIELD THEORY (CFT) */}
+      {/* 4. COORDINATION CFT & ELECTRON ARROW FILLING (Manipulative) */}
       {/* ============================================================== */}
       {activeMode === 'coordination-cft' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-purple-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping"></span>
-                <span>OCTAHEDRAL CRYSTAL FIELD SPLITTING (Δo) & d-ORBITAL DEGENERACY</span>
+                <span>OCTAHEDRAL SPLITTING Δo: {ligandField.toUpperCase()} FIELD (d{dElectronCount})</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
-                {/* Free ion 5 degenerate d-orbitals on left */}
-                <g transform="translate(60, 110)">
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
+                {/* Free Metal Ion degenerate 5d orbitals on left */}
+                <g transform="translate(60, 115)">
                   <text x="0" y="-30" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">
-                    Free Metal Ion
+                    Free Ion (Degenerate)
                   </text>
-                  {[-40, -20, 0, 20, 40].map((x, i) => (
+                  {[-36, -18, 0, 18, 36].map((x, i) => (
                     <rect key={i} x={x - 8} y="-8" width="16" height="16" fill="#1e293b" stroke="#64748b" />
                   ))}
-                  <text x="0" y="25" fill="#64748b" fontSize="8" textAnchor="middle">Degenerate 5d</text>
+                  <text x="0" y="24" fill="#64748b" fontSize="8" textAnchor="middle">5 d-orbitals</text>
                 </g>
 
-                {/* Splitting connector lines */}
-                <path d="M 110,110 L 220,60" fill="none" stroke="#475569" strokeDasharray="3 3" />
-                <path d="M 110,110 L 220,150" fill="none" stroke="#475569" strokeDasharray="3 3" />
+                {/* Crystal Field Splitting connecting lines */}
+                <line x1="110" y1="115" x2="210" y2="65" stroke="#475569" strokeDasharray="3 3" />
+                <line x1="110" y1="115" x2="210" y2="155" stroke="#475569" strokeDasharray="3 3" />
 
-                {/* Upper eg level (2 orbitals) */}
-                <g transform="translate(260, 60)">
-                  <text x="0" y="-20" fill="#f43f5e" fontSize="10" fontWeight="bold" textAnchor="middle">
-                    eg (+0.6 Δo)
+                {/* Upper eg level (2 orbitals dx2-y2, dz2) */}
+                <g transform="translate(250, 65)">
+                  <text x="0" y="-18" fill="#f43f5e" fontSize="9" fontWeight="bold" textAnchor="middle">
+                    eg (+0.6 Δo) [{cftStats.egCount}e⁻]
                   </text>
-                  {[-15, 15].map((x, i) => (
-                    <rect key={i} x={x - 10} y="-10" width="20" height="20" fill="#1e293b" stroke="#f43f5e" strokeWidth="1.5" />
-                  ))}
-                  <text x="0" y="25" fill="#94a3b8" fontSize="8" textAnchor="middle">dx²-y², dz²</text>
+                  {[-18, 18].map((x, i) => {
+                    const eInThisBox = i === 0 ? Math.min(2, Math.ceil(cftStats.egCount / 2)) : Math.floor(cftStats.egCount / 2);
+                    return (
+                      <g key={i}>
+                        <rect x={x - 12} y="-12" width="24" height="24" fill="#1e293b" stroke="#f43f5e" strokeWidth="1.5" />
+                        {/* Electron arrows */}
+                        {eInThisBox >= 1 && (
+                          <text x={x - 4} y="5" fill="#facc15" fontSize="13" fontWeight="bold">↑</text>
+                        )}
+                        {eInThisBox >= 2 && (
+                          <text x={x + 4} y="5" fill="#38bdf8" fontSize="13" fontWeight="bold">↓</text>
+                        )}
+                      </g>
+                    );
+                  })}
                 </g>
 
-                {/* Lower t2g level (3 orbitals) */}
-                <g transform="translate(260, 150)">
-                  <text x="0" y="32" fill="#38bdf8" fontSize="10" fontWeight="bold" textAnchor="middle">
-                    t2g (-0.4 Δo)
+                {/* Lower t2g level (3 orbitals dxy, dyz, dzx) */}
+                <g transform="translate(250, 155)">
+                  <text x="0" y="28" fill="#38bdf8" fontSize="9" fontWeight="bold" textAnchor="middle">
+                    t2g (-0.4 Δo) [{cftStats.t2gCount}e⁻]
                   </text>
-                  {[-30, 0, 30].map((x, i) => (
-                    <rect key={i} x={x - 10} y="-10" width="20" height="20" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.5" />
-                  ))}
-                  <text x="0" y="-16" fill="#94a3b8" fontSize="8" textAnchor="middle">dxy, dyz, dzx</text>
+                  {[-28, 0, 28].map((x, i) => {
+                    const eInThisBox = cftStats.t2gCount > i ? (cftStats.t2gCount >= i + 4 ? 2 : 1) : 0;
+                    return (
+                      <g key={i}>
+                        <rect x={x - 12} y="-12" width="24" height="24" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.5" />
+                        {eInThisBox >= 1 && (
+                          <text x={x - 4} y="5" fill="#facc15" fontSize="13" fontWeight="bold">↑</text>
+                        )}
+                        {eInThisBox >= 2 && (
+                          <text x={x + 4} y="5" fill="#38bdf8" fontSize="13" fontWeight="bold">↓</text>
+                        )}
+                      </g>
+                    );
+                  })}
                 </g>
 
                 {/* Energy Gap Arrow Δo */}
-                <line x1="330" y1="60" x2="330" y2="150" stroke="#facc15" strokeWidth="2" />
-                <text x="345" y="110" fill="#facc15" fontSize="11" fontWeight="bold">
+                <line x1="330" y1="65" x2="330" y2="155" stroke="#facc15" strokeWidth="2" />
+                <text x="345" y="115" fill="#facc15" fontSize="11" fontWeight="bold">
                   Δo
                 </text>
 
-                <text x="200" y="205" textAnchor="middle" fill="#e2e8f0" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  {ligandField === 'strong' ? 'Strong Field Ligand (CN⁻): Low Spin (Δo > Pairing Energy)' : 'Weak Field Ligand (Cl⁻): High Spin (Δo < Pairing Energy)'}
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  Unpaired Electrons n = {cftStats.totalUnpaired} ➔ Spin-only Magnetic Moment μ = {cftStats.spinOnlyMoment} BM
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-purple-400 font-bold">d-Electrons: d{dElectronCount}</span>
-                <span className="text-cyan-400 font-bold">Spin State: {ligandField === 'strong' ? 'Low Spin' : 'High Spin'}</span>
-                <span className="text-emerald-400 font-bold">Magnetic: {ligandField === 'strong' && dElectronCount === 6 ? 'Diamagnetic (0 unpaired)' : 'Paramagnetic'}</span>
+                <span className="text-purple-400 font-bold">Config: t2g^{cftStats.t2gCount} eg^{cftStats.egCount}</span>
+                <span className="text-cyan-400 font-bold">Unpaired: {cftStats.totalUnpaired} e⁻</span>
+                <span className="text-emerald-400 font-bold">μ: {cftStats.spinOnlyMoment} BM ({cftStats.totalUnpaired === 0 ? 'Diamagnetic' : 'Paramagnetic'})</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-purple-400 font-mono text-sm uppercase">Ligand Field Strength</h4>
+              <h4 className="font-bold text-purple-400 font-mono text-sm uppercase">CFT Manipulations</h4>
 
-              <div className="space-y-2">
-                <button
-                  onClick={() => setLigandField('strong')}
-                  className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition border ${
-                    ligandField === 'strong'
-                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                  }`}
-                >
-                  Strong Field (CN⁻, CO) ➔ Large Δo (Low Spin)
-                </button>
-                <button
-                  onClick={() => setLigandField('weak')}
-                  className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition border ${
-                    ligandField === 'weak'
-                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                  }`}
-                >
-                  Weak Field (I⁻, Cl⁻, H₂O) ➔ Small Δo (High Spin)
-                </button>
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Ligand Field Strength:</span>
+                <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                  <button
+                    onClick={() => setLigandField('strong')}
+                    className={`p-2 rounded-xl transition border text-center ${
+                      ligandField === 'strong'
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Strong Field (Low Spin)
+                  </button>
+                  <button
+                    onClick={() => setLigandField('weak')}
+                    className={`p-2 rounded-xl transition border text-center ${
+                      ligandField === 'weak'
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Weak Field (High Spin)
+                  </button>
+                </div>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-purple-400">Spectrochemical Series:</div>
-                <p className="text-[10px] text-slate-400">
-                  I⁻ &lt; Br⁻ &lt; Cl⁻ &lt; F⁻ &lt; OH⁻ &lt; H₂O &lt; NH₃ &lt; en &lt; CN⁻ &lt; CO.
-                  Strong field ligands produce large splitting energy Δo, forcing electron pairing in lower t₂g before filling eg.
-                </p>
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">d-Electrons Count:</span>
+                  <span className="text-purple-400 font-bold">d{dElectronCount}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={dElectronCount}
+                  onChange={(e) => setDElectronCount(Number(e.target.value))}
+                  className="w-full accent-purple-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="grid grid-cols-5 gap-1.5 text-xs font-mono font-bold">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDElectronCount(d)}
+                    className={`p-1.5 rounded-lg border text-center transition ${
+                      dElectronCount === d
+                        ? 'bg-purple-500 text-slate-950 font-bold border-purple-400'
+                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    d{d}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

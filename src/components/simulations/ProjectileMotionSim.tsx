@@ -1,34 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Formula } from '../common/Formula';
-import { Play, Pause, RotateCcw, Crosshair } from 'lucide-react';
+import { Play, Pause, RotateCcw, Crosshair, Sliders, Globe } from 'lucide-react';
 import { GraphViewer } from '../common/GraphViewer';
 
 interface ProjectileMotionSimProps {
-  velocity: number;
-  angle: number;
-  gravity: number;
-  initialHeight: number;
+  velocity?: number;
+  angle?: number;
+  gravity?: number;
+  initialHeight?: number;
 }
 
+const CELESTIAL_BODIES = [
+  { name: 'Earth (9.8 m/s²)', g: 9.8 },
+  { name: 'Moon (1.62 m/s²)', g: 1.62 },
+  { name: 'Mars (3.72 m/s²)', g: 3.72 },
+  { name: 'Jupiter (24.79 m/s²)', g: 24.79 },
+];
+
 export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
-  velocity,
-  angle,
-  gravity,
-  initialHeight,
+  velocity: propV = 25,
+  angle: propA = 45,
+  gravity: propG = 9.8,
+  initialHeight: propH = 0,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+
+  // Direct interactive state
+  const [velocity, setVelocity] = useState<number>(propV);
+  const [angle, setAngle] = useState<number>(propA);
+  const [gravity, setGravity] = useState<number>(propG);
+  const [initialHeight, setInitialHeight] = useState<number>(propH);
+
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
 
   const angleRad = (angle * Math.PI) / 180;
   const vx0 = velocity * Math.cos(angleRad);
   const vy0 = velocity * Math.sin(angleRad);
 
   // Exact kinematic solutions
-  // y(t) = y0 + vy0*t - 0.5*g*t^2 = 0
-  // 0.5*g*t^2 - vy0*t - y0 = 0
   const flightTime = (vy0 + Math.sqrt(vy0 * vy0 + 2 * gravity * initialHeight)) / gravity;
-  const timeToPeak = vy0 / gravity;
   const maxHeight = initialHeight + (vy0 > 0 ? (vy0 * vy0) / (2 * gravity) : 0);
   const range = vx0 * flightTime;
 
@@ -50,13 +61,7 @@ export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
       animId = requestAnimationFrame(step);
     }
     return () => cancelAnimationFrame(animId);
-  }, [isPlaying, flightTime]);
-
-  // Reset when initial parameters change significantly
-  useEffect(() => {
-    setCurrentTime(0);
-    setIsPlaying(false);
-  }, [velocity, angle, gravity, initialHeight]);
+  }, [isPlaying, flightTime, currentTime]);
 
   // Current position
   const currentX = vx0 * currentTime;
@@ -73,8 +78,11 @@ export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+    }
+    ctx.save();
     ctx.scale(dpr, dpr);
 
     const w = rect.width;
@@ -95,7 +103,6 @@ export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
     const toScreenX = (x: number) => padLeft + (x / maxWorldX) * simW;
     const toScreenY = (y: number) => padTop + simH - (y / maxWorldY) * simH;
 
-    // Clear
     ctx.clearRect(0, 0, w, h);
 
     // Sky gradient
@@ -138,180 +145,108 @@ export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
       ctx.fillText(`${wy.toFixed(0)}m`, padLeft - 6, sy + 3);
     }
 
-    // Ground platform
+    // Ground plane
     ctx.fillStyle = '#1e293b';
-    ctx.fillRect(padLeft, padTop + simH, simW, padBottom);
+    ctx.fillRect(0, padTop + simH, w, padBottom);
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(padLeft, padTop + simH);
-    ctx.lineTo(padLeft + simW, padTop + simH);
+    ctx.moveTo(0, padTop + simH);
+    ctx.lineTo(w, padTop + simH);
     ctx.stroke();
 
-    // Launch cliff/stand
+    // Launch cliff / platform if initialHeight > 0
     if (initialHeight > 0) {
-      const standRight = toScreenX(0);
-      const standTop = toScreenY(initialHeight);
+      const cliffRight = toScreenX(0);
+      const cliffTop = toScreenY(initialHeight);
       ctx.fillStyle = '#334155';
-      ctx.fillRect(padLeft - 20, standTop, 20, padTop + simH - standTop);
+      ctx.fillRect(0, cliffTop, cliffRight, padTop + simH - cliffTop);
       ctx.strokeStyle = '#64748b';
-      ctx.strokeRect(padLeft - 20, standTop, 20, padTop + simH - standTop);
+      ctx.strokeRect(0, cliffTop, cliffRight, padTop + simH - cliffTop);
     }
 
-    // Trajectory theoretical path (dashed)
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
+    // Theoretical parabolic trajectory curve
     ctx.beginPath();
-    const steps = 100;
+    const steps = 80;
     for (let i = 0; i <= steps; i++) {
       const t = (i / steps) * flightTime;
-      const x = vx0 * t;
-      const y = Math.max(0, initialHeight + vy0 * t - 0.5 * gravity * t * t);
-      const sx = toScreenX(x);
-      const sy = toScreenY(y);
+      const px = vx0 * t;
+      const py = Math.max(0, initialHeight + vy0 * t - 0.5 * gravity * t * t);
+      const sx = toScreenX(px);
+      const sy = toScreenY(py);
       if (i === 0) ctx.moveTo(sx, sy);
       else ctx.lineTo(sx, sy);
     }
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Actual covered trajectory up to currentTime
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 3;
+    // Path traveled so far
     ctx.beginPath();
-    const coveredSteps = Math.max(2, Math.floor((currentTime / flightTime) * steps));
-    for (let i = 0; i <= coveredSteps; i++) {
-      const t = (i / steps) * flightTime;
-      const x = vx0 * t;
-      const y = Math.max(0, initialHeight + vy0 * t - 0.5 * gravity * t * t);
-      const sx = toScreenX(x);
-      const sy = toScreenY(y);
+    const curSteps = Math.max(2, Math.round((currentTime / flightTime) * steps));
+    for (let i = 0; i <= curSteps; i++) {
+      const t = (i / curSteps) * currentTime;
+      const px = vx0 * t;
+      const py = Math.max(0, initialHeight + vy0 * t - 0.5 * gravity * t * t);
+      const sx = toScreenX(px);
+      const sy = toScreenY(py);
       if (i === 0) ctx.moveTo(sx, sy);
       else ctx.lineTo(sx, sy);
     }
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Apex marker
-    if (maxHeight > initialHeight) {
-      const apexX = vx0 * timeToPeak;
-      const apexSx = toScreenX(apexX);
-      const apexSy = toScreenY(maxHeight);
-      ctx.strokeStyle = '#f59e0b';
-      ctx.setLineDash([2, 2]);
-      ctx.beginPath();
-      ctx.moveTo(apexSx, toScreenY(0));
-      ctx.lineTo(apexSx, apexSy);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    // Projectile position
+    const ballSx = toScreenX(currentX);
+    const ballSy = toScreenY(currentY);
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(apexSx, apexSy, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`H_max = ${maxHeight.toFixed(1)}m`, apexSx, apexSy - 8);
-    }
-
-    // Range landing marker
-    const landingSx = toScreenX(range);
-    const landingSy = toScreenY(0);
-    ctx.fillStyle = '#10b981';
+    // Ball glow
+    const ballGrad = ctx.createRadialGradient(ballSx, ballSy, 1, ballSx, ballSy, 10);
+    ballGrad.addColorStop(0, '#fef08a');
+    ballGrad.addColorStop(0.6, '#eab308');
+    ballGrad.addColorStop(1, '#ca8a04');
+    ctx.fillStyle = ballGrad;
     ctx.beginPath();
-    ctx.arc(landingSx, landingSy, 4, 0, Math.PI * 2);
+    ctx.arc(ballSx, ballSy, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`R = ${range.toFixed(1)}m`, landingSx, landingSy + 24);
-
-    // Current Projectile Ball
-    const projSx = toScreenX(currentX);
-    const projSy = toScreenY(currentY);
-
-    // Projectile glow
-    const glow = ctx.createRadialGradient(projSx, projSy, 2, projSx, projSy, 14);
-    glow.addColorStop(0, 'rgba(56, 189, 248, 0.9)');
-    glow.addColorStop(1, 'rgba(56, 189, 248, 0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(projSx, projSy, 14, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Projectile core
-    ctx.fillStyle = '#f8fafc';
-    ctx.beginPath();
-    ctx.arc(projSx, projSy, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Velocity Vectors Overlay
-    const vectorScale = 1.2;
-    // Horizontal vector v_x (green)
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(projSx, projSy);
-    ctx.lineTo(projSx + vx0 * vectorScale, projSy);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Vertical vector v_y (cyan)
-    ctx.strokeStyle = '#06b6d4';
+    // Velocity vector arrows
+    const vecScale = 1.2;
     ctx.beginPath();
-    ctx.moveTo(projSx, projSy);
-    ctx.lineTo(projSx, projSy - currentVy * vectorScale);
-    ctx.stroke();
-
-    // Net Velocity vector v (amber)
+    ctx.moveTo(ballSx, ballSy);
+    ctx.lineTo(ballSx + vx0 * vecScale, ballSy - currentVy * vecScale);
     ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(projSx, projSy);
-    ctx.lineTo(projSx + vx0 * vectorScale, projSy - currentVy * vectorScale);
-    ctx.stroke();
-
-    // Gravity vector g pointing strictly downward (rose)
-    ctx.strokeStyle = '#f43f5e';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(projSx, projSy);
-    ctx.lineTo(projSx, projSy + (gravity * 2));
     ctx.stroke();
 
-  }, [currentTime, velocity, angle, gravity, initialHeight, range, maxHeight, flightTime, currentX, currentY, currentVy, vx0, vy0, timeToPeak]);
+    ctx.restore();
+  }, [
+    velocity,
+    angle,
+    gravity,
+    initialHeight,
+    currentTime,
+    currentX,
+    currentY,
+    currentVy,
+    flightTime,
+    maxHeight,
+    range,
+    vx0,
+    vy0,
+  ]);
 
   return (
     <div className="space-y-4">
-      {/* Visual Canvas */}
+      {/* Simulation Screen */}
       <div className="relative bg-[#0f172a] rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs">
-          <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-slate-300 font-medium">Kinematic Ballistics Simulator</span>
-        </div>
-
-        {/* Live Vector Legend */}
-        <div className="absolute top-3 right-3 z-10 hidden sm:flex items-center gap-3 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-700/60 text-[11px] font-mono">
-          <span className="flex items-center gap-1 text-amber-400">
-            <span className="w-2.5 h-0.5 bg-amber-400 inline-block"></span>
-            <Formula tex="\vec{v}" inline /> Net
-          </span>
-          <span className="flex items-center gap-1 text-emerald-400">
-            <span className="w-2.5 h-0.5 bg-emerald-400 inline-block"></span>
-            <Formula tex="v_x" inline />
-          </span>
-          <span className="flex items-center gap-1 text-cyan-400">
-            <span className="w-2.5 h-0.5 bg-cyan-400 inline-block"></span>
-            <Formula tex="v_y" inline />
-          </span>
-          <span className="flex items-center gap-1 text-rose-400">
-            <span className="w-2.5 h-0.5 bg-rose-400 inline-block"></span>
-            <Formula tex="\vec{g}" inline />
-          </span>
-        </div>
-
-        <canvas
-          ref={canvasRef}
-          className="w-full h-72 sm:h-80 block"
-        />
+        <canvas ref={canvasRef} className="w-full h-72 sm:h-80 block" />
 
         {/* Playback Controls & Live Readouts */}
         <div className="p-3 bg-slate-950/80 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
@@ -356,7 +291,147 @@ export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
         </div>
       </div>
 
-      {/* Real-time Graphs (Trajectory y vs x & Vertical velocity vy vs t) */}
+      {/* Direct Manipulation Sliders & Presets */}
+      <div className="bg-[#0b1329] border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-cyan-400" />
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+              Kinematics & Ballistic Trajectory Manipulator
+            </h4>
+          </div>
+          <span className="text-xs text-cyan-400 font-mono font-bold bg-cyan-950/80 border border-cyan-800 px-2.5 py-0.5 rounded-full">
+            Range: {range.toFixed(1)} m • Apex: {maxHeight.toFixed(1)} m
+          </span>
+        </div>
+
+        {/* Sliders Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-sky-300 font-medium">Launch Speed (v₀):</span>
+              <span className="font-mono font-bold text-sky-400">{velocity} m/s</span>
+            </div>
+            <input
+              type="range"
+              min="5"
+              max="60"
+              step="1"
+              value={velocity}
+              onChange={(e) => {
+                setVelocity(parseInt(e.target.value));
+                setCurrentTime(0);
+                setIsPlaying(false);
+              }}
+              className="w-full accent-sky-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
+
+          <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-yellow-300 font-medium">Launch Angle (θ):</span>
+              <span className="font-mono font-bold text-yellow-400">{angle}°</span>
+            </div>
+            <input
+              type="range"
+              min="5"
+              max="85"
+              step="1"
+              value={angle}
+              onChange={(e) => {
+                setAngle(parseInt(e.target.value));
+                setCurrentTime(0);
+                setIsPlaying(false);
+              }}
+              className="w-full accent-yellow-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
+
+          <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-emerald-300 font-medium">Gravity (g):</span>
+              <span className="font-mono font-bold text-emerald-400">{gravity} m/s²</span>
+            </div>
+            <input
+              type="range"
+              min="1.0"
+              max="25.0"
+              step="0.1"
+              value={gravity}
+              onChange={(e) => {
+                setGravity(parseFloat(e.target.value));
+                setCurrentTime(0);
+                setIsPlaying(false);
+              }}
+              className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
+
+          <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-purple-300 font-medium">Cliff Height (y₀):</span>
+              <span className="font-mono font-bold text-purple-400">{initialHeight} m</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="40"
+              step="1"
+              value={initialHeight}
+              onChange={(e) => {
+                setInitialHeight(parseInt(e.target.value));
+                setCurrentTime(0);
+                setIsPlaying(false);
+              }}
+              className="w-full accent-purple-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {/* Celestial Gravity Presets */}
+        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-slate-400 font-medium flex items-center gap-1">
+              <Globe className="w-3.5 h-3.5 text-cyan-400" />
+              Planetary Gravity:
+            </span>
+            {CELESTIAL_BODIES.map((b) => (
+              <button
+                key={b.name}
+                onClick={() => {
+                  setGravity(b.g);
+                  setCurrentTime(0);
+                  setIsPlaying(false);
+                }}
+                className={`px-2.5 py-1 rounded-lg font-mono text-xs transition ${
+                  gravity === b.g
+                    ? 'bg-cyan-500 text-slate-950 font-bold'
+                    : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              setVelocity(25);
+              setAngle(45);
+              setGravity(9.8);
+              setInitialHeight(0);
+              setCurrentTime(0);
+              setIsPlaying(false);
+            }}
+            className="text-xs px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset Earth 45°
+          </button>
+        </div>
+      </div>
+
+      {/* Real-time Graphs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <GraphViewer
           title="Trajectory: Height vs Distance"
@@ -367,7 +442,6 @@ export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
           xDomain={[0, Math.ceil(range * 1.1)]}
           yDomain={[0, Math.ceil(maxHeight * 1.2)]}
           curveFunction={(x) => {
-            // Trajectory equation: y(x) = y0 + x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta))
             const tanA = Math.tan(angleRad);
             const cosA = Math.cos(angleRad);
             return initialHeight + x * tanA - (gravity * x * x) / (2 * velocity * velocity * cosA * cosA);
@@ -392,7 +466,9 @@ export const ProjectileMotionSim: React.FC<ProjectileMotionSimProps> = ({
 
       {/* Kinematics Formula Breakdown in LaTeX */}
       <div className="bg-[#131E36] rounded-xl border border-slate-800 p-4">
-        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Live Mathematical Derivation</h4>
+        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+          Live Mathematical Derivation
+        </h4>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
           <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
             <div className="text-[11px] text-slate-400 mb-1">Max Horizontal Range (R)</div>

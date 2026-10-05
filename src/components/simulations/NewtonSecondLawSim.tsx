@@ -1,22 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Formula } from '../common/Formula';
-import { Play, Pause, RotateCcw, Activity } from 'lucide-react';
+import { Play, Pause, RotateCcw, Activity, Sliders, Zap } from 'lucide-react';
 import { GraphViewer } from '../common/GraphViewer';
 
 interface NewtonSecondLawSimProps {
-  appliedForce: number;
-  mass: number;
-  frictionCoeff: number;
+  appliedForce?: number;
+  mass?: number;
+  frictionCoeff?: number;
 }
 
+const SURFACE_PRESETS = [
+  { name: 'Frictionless Air Track (μ = 0)', mu: 0.0 },
+  { name: 'Smooth Ice (μ = 0.05)', mu: 0.05 },
+  { name: 'Polished Wood (μ = 0.25)', mu: 0.25 },
+  { name: 'Rubber on Asphalt (μ = 0.65)', mu: 0.65 },
+];
+
 export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
-  appliedForce,
-  mass,
-  frictionCoeff,
+  appliedForce: propF = 35,
+  mass: propM = 10,
+  frictionCoeff: propMu = 0.2,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [simTime, setSimTime] = useState(0);
+
+  // Direct manipulation state
+  const [appliedForce, setAppliedForce] = useState<number>(propF);
+  const [mass, setMass] = useState<number>(propM);
+  const [frictionCoeff, setFrictionCoeff] = useState<number>(propMu);
+
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [simTime, setSimTime] = useState<number>(0);
 
   const g = 9.8;
   const normalForce = mass * g;
@@ -51,11 +64,6 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
     return () => cancelAnimationFrame(animId);
   }, [isPlaying, acceleration]);
 
-  useEffect(() => {
-    setSimTime(0);
-    setIsPlaying(false);
-  }, [appliedForce, mass, frictionCoeff]);
-
   // Render canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -65,8 +73,10 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+    }
     ctx.scale(dpr, dpr);
 
     const w = rect.width;
@@ -74,7 +84,6 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
 
     ctx.clearRect(0, 0, w, h);
 
-    // Floor track
     const floorY = h * 0.72;
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, w, h);
@@ -93,7 +102,7 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
     ctx.fillStyle = '#64748b';
     ctx.font = '10px monospace';
     ctx.textAlign = 'center';
-    const meterScale = 25; // 25 px = 1 meter
+    const meterScale = 25;
     const trackOffset = (currentDisplacement * meterScale) % 50;
     for (let x = -trackOffset; x < w; x += 50) {
       ctx.beginPath();
@@ -105,7 +114,7 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
     // Box position on screen
     const boxW = Math.max(50, Math.min(100, 40 + mass * 2.5));
     const boxH = Math.max(40, Math.min(80, 35 + mass * 2));
-    const boxX = w * 0.35; // centered observation frame
+    const boxX = w * 0.35;
     const boxY = floorY - boxH;
 
     // Box body
@@ -118,7 +127,6 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
     ctx.lineWidth = 2;
     ctx.strokeRect(boxX, boxY, boxW, boxH);
 
-    // Mass label inside box
     ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
@@ -137,71 +145,55 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
       ctx.lineTo(toX, toY);
       ctx.stroke();
 
-      // Arrow head
-      const headlen = 8;
       const angle = Math.atan2(toY - fromY, toX - fromX);
+      const headLen = 8;
       ctx.beginPath();
       ctx.moveTo(toX, toY);
-      ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
-      ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+      ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
       ctx.fill();
 
-      // Label
-      ctx.font = '11px monospace';
-      ctx.fillText(label, toX + Math.cos(angle) * 16, toY + Math.sin(angle) * 16);
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(label, toX + Math.cos(angle) * 14, toY + Math.sin(angle) * 14);
     };
 
-    // Vector scaling: 1 N = 1.2 px
-    const scale = 1.1;
-
-    // 1. Normal Force N (upwards)
-    drawVector(centerX, boxY, centerX, boxY - Math.min(70, normalForce * scale * 0.35), '#38bdf8', `N = ${(normalForce).toFixed(0)}N`);
-
-    // 2. Weight W = mg (downwards)
-    drawVector(centerX, boxY + boxH, centerX, boxY + boxH + Math.min(70, normalForce * scale * 0.35), '#94a3b8', `W = ${(normalForce).toFixed(0)}N`);
-
-    // 3. Applied Force F_app (rightwards)
+    // 1. Applied Force Right
     if (appliedForce > 0) {
-      drawVector(boxX + boxW, centerY, boxX + boxW + Math.min(130, appliedForce * scale), centerY, '#10b981', `F_app = ${appliedForce}N`);
+      const fLen = Math.min(80, Math.max(15, appliedForce * 1.5));
+      drawVector(boxX + boxW, centerY, boxX + boxW + fLen, centerY, '#10b981', `F_app=${appliedForce}N`);
     }
 
-    // 4. Friction Force f_k (leftwards)
-    if (frictionForce > 0) {
-      drawVector(boxX, floorY, boxX - Math.min(100, frictionForce * scale), floorY, '#f43f5e', `f_k = ${frictionForce.toFixed(1)}N`);
+    // 2. Friction Force Left
+    if (frictionForce > 0 && appliedForce > 0) {
+      const fricLen = Math.min(70, Math.max(12, frictionForce * 1.5));
+      drawVector(boxX, centerY, boxX - fricLen, centerY, '#ef4444', `f_k=${frictionForce.toFixed(1)}N`);
     }
 
-    // 5. Net Acceleration Vector a (amber, above box)
-    if (acceleration > 0) {
-      drawVector(centerX, boxY - 30, centerX + Math.min(100, acceleration * 12), boxY - 30, '#f59e0b', `a = ${acceleration.toFixed(2)} m/s²`);
-    } else {
-      ctx.fillStyle = '#ef4444';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('Static (F_app ≤ f_s)', centerX, boxY - 24);
-    }
+    // 3. Normal Force Up
+    drawVector(centerX, boxY, centerX, boxY - 35, '#38bdf8', `N=${normalForce.toFixed(0)}N`);
 
-  }, [mass, appliedForce, frictionCoeff, normalForce, frictionForce, acceleration, currentDisplacement]);
+    // 4. Gravity Down
+    drawVector(centerX, boxY + boxH, centerX, boxY + boxH + 35, '#f59e0b', `W=mg`);
+
+    ctx.restore();
+  }, [appliedForce, mass, frictionCoeff, currentDisplacement, normalForce, frictionForce]);
 
   return (
     <div className="space-y-4">
       {/* Simulation Screen */}
-      <div className="relative bg-[#0f172a] rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs">
-          <Activity className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-slate-300 font-medium">Free Body Dynamics & Newton's Second Law</span>
-        </div>
+      <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-[#0f172a] shadow-2xl">
+        <canvas ref={canvasRef} className="w-full h-72 block" />
 
-        <canvas ref={canvasRef} className="w-full h-64 sm:h-72 block" />
-
-        {/* Telemetry Bar */}
+        {/* Playback Controls & Live Readouts */}
         <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsPlaying(!isPlaying)}
-              disabled={acceleration <= 0}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg font-medium text-xs bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 transition shadow-sm"
+              disabled={!isMovingForward}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg font-medium text-xs bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-slate-950 transition shadow-sm"
             >
               {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-              {isPlaying ? 'Pause' : 'Accelerate'}
+              {isPlaying ? 'Pause' : simTime >= 10 ? 'Replay' : 'Accelerate'}
             </button>
             <button
               onClick={() => {
@@ -209,7 +201,7 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
                 setSimTime(0);
               }}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-              title="Reset"
+              title="Reset simulation"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -221,65 +213,175 @@ export const NewtonSecondLawSim: React.FC<NewtonSecondLawSimProps> = ({
           <div className="flex items-center gap-4 text-slate-300">
             <div>
               <span className="text-slate-500">v: </span>
-              <span className="text-emerald-400 font-bold">{currentVelocity.toFixed(1)}</span> m/s
+              <span className="text-cyan-300 font-bold">{currentVelocity.toFixed(1)}</span> m/s
             </div>
             <div>
-              <span className="text-slate-500">d: </span>
-              <span className="text-cyan-300 font-bold">{currentDisplacement.toFixed(1)}</span> m
+              <span className="text-slate-500">x: </span>
+              <span className="text-emerald-400 font-bold">{currentDisplacement.toFixed(1)}</span> m
             </div>
             <div>
               <span className="text-slate-500">a: </span>
-              <span className="text-amber-400 font-bold">{acceleration.toFixed(2)}</span> m/s²
+              <span className="text-amber-300 font-bold">{acceleration.toFixed(2)}</span> m/s²
             </div>
           </div>
         </div>
       </div>
 
-      {/* Dynamic Graph */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <GraphViewer
-          title="Kinetic Speed Profile: v vs t"
-          xLabel="t"
-          yLabel="v(t)"
-          xUnit="s"
-          yUnit="m/s"
-          xDomain={[0, 10]}
-          yDomain={[0, Math.max(10, Math.ceil(acceleration * 10))]}
-          curveFunction={(t) => acceleration * t}
-          currentMarker={{ x: simTime, y: currentVelocity }}
-          curveColor="#10b981"
-          height={160}
-        />
-        <GraphViewer
-          title="Work-Energy: Displacement vs Time"
-          xLabel="t"
-          yLabel="x(t)"
-          xUnit="s"
-          yUnit="m"
-          xDomain={[0, 10]}
-          yDomain={[0, Math.max(20, Math.ceil(0.5 * acceleration * 100))]}
-          curveFunction={(t) => 0.5 * acceleration * t * t}
-          currentMarker={{ x: simTime, y: currentDisplacement }}
-          curveColor="#38bdf8"
-          height={160}
-        />
+      {/* Direct Manipulation Sliders & Controls */}
+      <div className="bg-[#0b1329] border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-cyan-400" />
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+              Newton&apos;s Second Law (F_net = m·a) Manipulator
+            </h4>
+          </div>
+          <span className="text-xs text-yellow-400 font-mono font-bold bg-yellow-950/80 border border-yellow-800 px-2.5 py-0.5 rounded-full">
+            {isMovingForward ? `F_net = ${netForce.toFixed(1)} N (Accelerating)` : 'Static (F_app ≤ f_friction)'}
+          </span>
+        </div>
+
+        {/* Sliders Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-emerald-300 font-medium">Applied Force (F_app):</span>
+              <span className="font-mono font-bold text-emerald-400 text-sm">{appliedForce} N</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={appliedForce}
+              onChange={(e) => {
+                setAppliedForce(parseInt(e.target.value));
+                setSimTime(0);
+                setIsPlaying(false);
+              }}
+              className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0 N</span>
+              <span>50 N</span>
+              <span>100 N</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-sky-300 font-medium">Inertial Mass (m):</span>
+              <span className="font-mono font-bold text-sky-400 text-sm">{mass.toFixed(1)} kg</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="30"
+              step="0.5"
+              value={mass}
+              onChange={(e) => {
+                setMass(parseFloat(e.target.value));
+                setSimTime(0);
+                setIsPlaying(false);
+              }}
+              className="w-full accent-sky-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>1 kg</span>
+              <span>15 kg</span>
+              <span>30 kg</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-rose-300 font-medium">Friction Coefficient (μ):</span>
+              <span className="font-mono font-bold text-rose-400 text-sm">{frictionCoeff.toFixed(2)}</span>
+            </div>
+            <input
+              type="range"
+              min="0.0"
+              max="0.8"
+              step="0.05"
+              value={frictionCoeff}
+              onChange={(e) => {
+                setFrictionCoeff(parseFloat(e.target.value));
+                setSimTime(0);
+                setIsPlaying(false);
+              }}
+              className="w-full accent-rose-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0.00 (Frictionless)</span>
+              <span>0.40</span>
+              <span>0.80 (Rough)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Surface Presets */}
+        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-slate-400 font-medium">Surface Presets:</span>
+            {SURFACE_PRESETS.map((sp) => (
+              <button
+                key={sp.name}
+                onClick={() => {
+                  setFrictionCoeff(sp.mu);
+                  setSimTime(0);
+                  setIsPlaying(false);
+                }}
+                className={`px-2.5 py-1 rounded-lg font-mono text-xs transition ${
+                  frictionCoeff === sp.mu
+                    ? 'bg-cyan-500 text-slate-950 font-bold'
+                    : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                {sp.name}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              setAppliedForce(35);
+              setMass(10);
+              setFrictionCoeff(0.2);
+              setSimTime(0);
+              setIsPlaying(false);
+            }}
+            className="text-xs px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset
+          </button>
+        </div>
       </div>
 
-      {/* Live Force Equation in LaTeX */}
-      <div className="bg-[#131E36] rounded-xl border border-slate-800 p-4">
-        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Live Dynamical Equations</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-            <div className="text-[11px] text-slate-400 mb-1">Kinetic Friction Force</div>
-            <Formula tex={`f_k = \\mu_k m g = ${frictionForce.toFixed(2)}\\text{ N}`} />
-          </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-            <div className="text-[11px] text-slate-400 mb-1">Net Unbalanced Force</div>
-            <Formula tex={`F_{\\text{net}} = F - f_k = ${netForce.toFixed(2)}\\text{ N}`} />
-          </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-            <div className="text-[11px] text-slate-400 mb-1">Resulting Acceleration</div>
-            <Formula tex={`a = \\frac{F_{\\text{net}}}{m} = ${acceleration.toFixed(2)}\\text{ m/s}^2`} />
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Linear Acceleration (a)</span>
+          <div className="text-lg font-mono font-bold text-amber-300">{acceleration.toFixed(2)} m/s²</div>
+          <span className="text-[10px] text-slate-500">a = F_net / m</span>
+        </div>
+
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Net Drive Force (F_net)</span>
+          <div className="text-lg font-mono font-bold text-emerald-400">{netForce.toFixed(1)} N</div>
+          <span className="text-[10px] text-slate-500">F_net = F_app - μmg</span>
+        </div>
+
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Kinetic Friction Force</span>
+          <div className="text-lg font-mono font-bold text-rose-400">{frictionForce.toFixed(1)} N</div>
+          <span className="text-[10px] text-slate-500">f_k = μ · N</span>
+        </div>
+
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Newton&apos;s Second Law</span>
+          <div className="mt-1">
+            <Formula tex="\sum \vec{F} = m \vec{a}" />
           </div>
         </div>
       </div>

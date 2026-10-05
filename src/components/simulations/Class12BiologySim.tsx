@@ -9,6 +9,8 @@ import {
   Sliders,
   Calendar,
   Zap,
+  TestTube,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface Class12BiologySimProps {
@@ -64,25 +66,40 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
   }, [isPlaying, simSpeed]);
 
   // ----------------------------------------------------------------------
-  // MODE 1: MENSTRUAL CYCLE & HORMONES
+  // MODE 1: MENSTRUAL CYCLE & SYNCHRONIZED HORMONES
   // ----------------------------------------------------------------------
   const [cycleDay, setCycleDay] = useState<number>(variables.cycleDay ?? 14);
+  const [isContraceptiveActive, setIsContraceptiveActive] = useState<boolean>(false);
+  const [isPregnantHcg, setIsPregnantHcg] = useState<boolean>(false);
 
   // ----------------------------------------------------------------------
-  // MODE 2: DNA REPLICATION FORK ARCHITECTURE
+  // MODE 2: DNA REPLICATION FORK ARCHITECTURE (Completely Manipulative)
   // ----------------------------------------------------------------------
-  const [replicationSpeed, setReplicationSpeed] = useState<number>(1);
+  const [forkSpeed, setForkSpeed] = useState<number>(2); // 1 - 5x
+  const [dntpConcentration, setDntpConcentration] = useState<number>(60); // 10 - 100 uM
+  const [ligaseActionTriggered, setLigaseActionTriggered] = useState<boolean>(true);
+  const [proofreadingExo, setProofreadingExo] = useState<boolean>(true);
 
   // ----------------------------------------------------------------------
-  // MODE 3: LAC OPERON GENE REGULATION
+  // MODE 3: LAC OPERON GENE REGULATION (Completely Manipulative)
   // ----------------------------------------------------------------------
   const [lactosePresent, setLactosePresent] = useState<boolean>(true);
+  const [glucoseLevel, setGlucoseLevel] = useState<'high' | 'low'>('low'); // Catabolite repression
+  const [operonGenotype, setOperonGenotype] = useState<'wild-type' | 'lacI-minus' | 'lacOc'>('wild-type');
+
+  // Transcription rate computation
+  const isRepressorActive = operonGenotype === 'wild-type' && !lactosePresent;
+  const isCapCampActive = glucoseLevel === 'low';
+  const isTranscribing = !isRepressorActive;
+  const betaGalactosidaseRate = isTranscribing ? (isCapCampActive ? 100 : 25) : 1;
 
   // ----------------------------------------------------------------------
-  // MODE 4: GEL ELECTROPHORESIS
+  // MODE 4: AGAROSE GEL ELECTROPHORESIS (Completely Manipulative)
   // ----------------------------------------------------------------------
   const [voltageV, setVoltageV] = useState<number>(100);
   const [uvLightOn, setUvLightOn] = useState<boolean>(true);
+  const [agarosePercent, setAgarosePercent] = useState<number>(1.0); // 0.8% - 2.0%
+  const [runTimeMinutes, setRunTimeMinutes] = useState<number>(30); // 0 - 60 min
 
   return (
     <div className="bg-[#0b1329] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-6">
@@ -103,7 +120,7 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
               </h3>
             </div>
             <p className="text-xs text-slate-400">
-              Live synchronized menstrual hormone tracks, DNA replication fork unwinding, Lac Operon induction & Agarose electrophoresis
+              Live synchronized menstrual hormone tracks, DNA replication fork unwinding, Lac Operon induction &amp; Agarose electrophoresis
             </p>
           </div>
         </div>
@@ -169,17 +186,17 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
       {activeMode === 'menstrual-cycle' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-pink-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-ping"></span>
-                <span>28-DAY SYNCHRONIZED OVARIAN &amp; UTERINE HORMONAL DYNAMICS</span>
+                <span>28-DAY SYNCHRONIZED OVARIAN &amp; UTERINE HORMONES</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
                 {/* 28 Day Timeline Grid */}
-                <line x1="50" y1="180" x2="360" y2="180" stroke="#334155" strokeWidth="1.5" />
+                <line x1="50" y1="180" x2="380" y2="180" stroke="#334155" strokeWidth="1.5" />
                 {[1, 5, 14, 21, 28].map((d) => {
-                  const x = 50 + ((d - 1) / 27) * 310;
+                  const x = 50 + ((d - 1) / 27) * 330;
                   return (
                     <g key={d}>
                       <line x1={x} y1="175" x2={x} y2="185" stroke="#64748b" />
@@ -188,65 +205,73 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
                   );
                 })}
 
-                {/* LH Surge curve (peaks sharply at Day 14) */}
-                <path
-                  d="M 50,140 Q 150,140 190,130 Q 205,40 220,130 Q 260,140 360,140"
-                  fill="none"
-                  stroke="#f43f5e"
-                  strokeWidth="2.5"
-                />
-                <text x="210" y="35" fill="#f43f5e" fontSize="9" fontWeight="bold" textAnchor="middle">LH Surge (Ovulation)</text>
+                {/* LH Surge curve (Suppressed if on contraceptive pill) */}
+                {!isContraceptiveActive ? (
+                  <path
+                    d="M 50,140 Q 150,140 195,130 Q 212,40 230,130 Q 270,140 380,140"
+                    fill="none"
+                    stroke="#f43f5e"
+                    strokeWidth="2.5"
+                  />
+                ) : (
+                  <line x1="50" y1="145" x2="380" y2="145" stroke="#f43f5e" strokeWidth="2" strokeDasharray="3 3" />
+                )}
+                <text x="212" y="32" fill="#f43f5e" fontSize="9" fontWeight="bold" textAnchor="middle">
+                  {isContraceptiveActive ? 'LH Peak Suppressed (Anovulatory)' : 'LH Surge (Induces Ovulation)'}
+                </text>
 
-                {/* Estrogen Curve (peaks prior to ovulation) */}
+                {/* Estrogen Curve */}
                 <path
-                  d="M 50,150 Q 140,150 180,80 Q 210,140 270,110 Q 330,160 360,165"
+                  d={isContraceptiveActive ? "M 50,130 L 380,130" : "M 50,150 Q 140,150 185,75 Q 215,140 280,110 Q 340,160 380,165"}
                   fill="none"
                   stroke="#38bdf8"
                   strokeWidth="2"
                   strokeDasharray="4 2"
                 />
 
-                {/* Progesterone Curve (peaks in luteal phase, Day 21) */}
+                {/* Progesterone Curve (High in pregnancy or luteal) */}
                 <path
-                  d="M 50,165 L 190,165 Q 260,75 330,165 L 360,165"
+                  d={isPregnantHcg ? "M 50,165 L 195,165 Q 260,65 380,65" : "M 50,165 L 195,165 Q 270,75 340,165 L 380,165"}
                   fill="none"
                   stroke="#facc15"
                   strokeWidth="2"
                 />
-                <text x="265" y="70" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">Progesterone Peak</text>
+                <text x="275" y="70" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  {isPregnantHcg ? 'Progesterone Sustained by hCG' : 'Progesterone (Corpus Luteum)'}
+                </text>
 
                 {/* Current Day Cursor Marker */}
                 {(() => {
-                  const cx = 50 + ((cycleDay - 1) / 27) * 310;
+                  const cx = 50 + ((cycleDay - 1) / 27) * 330;
                   return (
                     <g>
-                      <line x1={cx} y1="30" x2={cx} y2="180" stroke="#ec4899" strokeWidth="2" strokeDasharray="3 3" />
+                      <line x1={cx} y1="35" x2={cx} y2="180" stroke="#ec4899" strokeWidth="2" strokeDasharray="3 3" />
                       <circle cx={cx} cy="180" r="5" fill="#ec4899" className="animate-pulse" />
-                      <text x={cx} y="25" fill="#ec4899" fontSize="8" fontWeight="bold" textAnchor="middle">
+                      <text x={cx} y="25" fill="#ec4899" fontSize="9" fontWeight="bold" textAnchor="middle">
                         Day {cycleDay}
                       </text>
                     </g>
                   );
                 })()}
 
-                <text x="200" y="208" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  {cycleDay <= 5 ? 'Menstrual Phase: Endometrium sheds' : cycleDay < 14 ? 'Follicular / Proliferative: Estrogen stimulates lining' : cycleDay === 14 ? 'Ovulation: Graafian follicle ruptures' : 'Luteal / Secretory Phase: Corpus luteum secretes progesterone'}
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  {cycleDay <= 5 ? 'Menstrual Phase: Endometrium sheds' : cycleDay < 14 ? 'Follicular / Proliferative: Estrogen rebuilds lining' : cycleDay === 14 ? 'Ovulatory Day: Graafian follicle ruptures' : 'Luteal / Secretory Phase: Corpus luteum secretes progesterone'}
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-pink-400 font-bold">Selected Day: {cycleDay}</span>
-                <span className="text-cyan-400 font-bold">Primary Hormone: {cycleDay === 14 ? 'LH Peak' : cycleDay > 14 ? 'Progesterone' : 'Estrogen & FSH'}</span>
-                <span className="text-amber-400 font-bold">Endometrium: {cycleDay <= 5 ? 'Shedding' : 'Vascularized'}</span>
+                <span className="text-pink-400 font-bold">Day: {cycleDay} of 28</span>
+                <span className="text-cyan-400 font-bold">Pill Active: {isContraceptiveActive ? 'YES (No Ovulation)' : 'NO'}</span>
+                <span className="text-amber-400 font-bold">hCG / Pregnancy: {isPregnantHcg ? 'ACTIVE' : 'NONE'}</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-pink-400 font-mono text-sm uppercase">Cycle Timeline Scrubber</h4>
+              <h4 className="font-bold text-pink-400 font-mono text-sm uppercase">Cycle Manipulations</h4>
 
               <div>
                 <div className="flex justify-between text-xs mb-1 font-mono">
-                  <span className="text-slate-300">Day in 28-day cycle:</span>
+                  <span className="text-slate-300">Scrub Day:</span>
                   <span className="text-pink-400 font-bold">Day {cycleDay}</span>
                 </div>
                 <input
@@ -260,17 +285,34 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 text-xs">
-                <button onClick={() => setCycleDay(3)} className="p-1.5 rounded-lg bg-slate-950 text-rose-300 border border-slate-800 hover:bg-slate-800">Menstruation (Day 3)</button>
-                <button onClick={() => setCycleDay(10)} className="p-1.5 rounded-lg bg-slate-950 text-cyan-300 border border-slate-800 hover:bg-slate-800">Proliferative (Day 10)</button>
-                <button onClick={() => setCycleDay(14)} className="p-1.5 rounded-lg bg-slate-950 text-pink-300 border border-slate-800 hover:bg-slate-800">Ovulation (Day 14)</button>
-                <button onClick={() => setCycleDay(21)} className="p-1.5 rounded-lg bg-slate-950 text-amber-300 border border-slate-800 hover:bg-slate-800">Secretory (Day 21)</button>
+                <button onClick={() => setCycleDay(3)} className="p-1.5 rounded-lg bg-slate-950 text-rose-300 border border-slate-800 hover:bg-slate-800">Day 3 (Menses)</button>
+                <button onClick={() => setCycleDay(10)} className="p-1.5 rounded-lg bg-slate-950 text-cyan-300 border border-slate-800 hover:bg-slate-800">Day 10 (Prolif)</button>
+                <button onClick={() => setCycleDay(14)} className="p-1.5 rounded-lg bg-slate-950 text-pink-300 border border-slate-800 hover:bg-slate-800">Day 14 (Ovulation)</button>
+                <button onClick={() => setCycleDay(21)} className="p-1.5 rounded-lg bg-slate-950 text-amber-300 border border-slate-800 hover:bg-slate-800">Day 21 (Luteal)</button>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-pink-400">NCERT LH Surge Insight:</div>
-                <p>
-                  Rapid secretion of LH leading to its maximum level during the mid-cycle induces rupture of the mature Graafian follicle, thereby releasing the ovum (ovulation).
-                </p>
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <button
+                  onClick={() => setIsContraceptiveActive(!isContraceptiveActive)}
+                  className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition border ${
+                    isContraceptiveActive
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  {isContraceptiveActive ? '✓ Oral Contraceptive Pill Active (LH Peak Suppressed)' : '+ Simulate Contraceptive Pill'}
+                </button>
+
+                <button
+                  onClick={() => setIsPregnantHcg(!isPregnantHcg)}
+                  className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition border ${
+                    isPregnantHcg
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  {isPregnantHcg ? '✓ Fertilization / hCG (Corpus Luteum Maintained)' : '+ Simulate hCG / Pregnancy Signal'}
+                </button>
               </div>
             </div>
           </div>
@@ -278,77 +320,127 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 2. DNA REPLICATION FORK ARCHITECTURE */}
+      {/* 2. DNA REPLICATION FORK ARCHITECTURE (Manipulative) */}
       {/* ============================================================== */}
       {activeMode === 'dna-replication-fork' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-cyan-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                <span>SEMI-CONSERVATIVE REPLICATION FORK &amp; OKAZAKI FRAGMENTS</span>
+                <span>SEMI-CONSERVATIVE REPLICATION FORK &amp; LIGASE SEALING</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
                 {/* Unwound DNA Y-Fork */}
                 {/* Parental Double Helix on Right */}
-                <line x1="280" y1="110" x2="380" y2="110" stroke="#38bdf8" strokeWidth="4" />
+                <line x1="280" y1="115" x2="400" y2="115" stroke="#38bdf8" strokeWidth="4" />
 
                 {/* Helicase Enzyme unwinding at fork junction */}
-                <polygon points="260,95 290,110 260,125" fill="#f59e0b" stroke="#ffffff" strokeWidth="1" />
-                <text x="270" y="113" fill="#ffffff" fontSize="7" fontWeight="bold" textAnchor="middle">Helicase</text>
+                <polygon points="260,100 290,115 260,130" fill="#f59e0b" stroke="#ffffff" strokeWidth="1" />
+                <text x="270" y="118" fill="#ffffff" fontSize="7" fontWeight="bold" textAnchor="middle">Helicase</text>
 
                 {/* Top Leading Strand (Continuous 5' to 3') */}
-                <path d="M 270,110 L 160,60 L 50,60" fill="none" stroke="#38bdf8" strokeWidth="3" />
+                <path d="M 270,115 L 160,65 L 40,65" fill="none" stroke="#38bdf8" strokeWidth="3" />
                 {/* Synthesized new leading strand */}
-                <path d="M 250,105 L 160,70 L 80,70" fill="none" stroke="#4ade80" strokeWidth="2.5" />
-                <text x="80" y="50" fill="#38bdf8" fontSize="8" fontWeight="bold">Leading Strand (Continuous)</text>
+                <path d="M 250,110 L 160,75 L 70,75" fill="none" stroke="#4ade80" strokeWidth="2.5" />
+                <text x="70" y="55" fill="#38bdf8" fontSize="8" fontWeight="bold">Leading Strand (5' ➔ 3' Continuous)</text>
 
                 {/* Bottom Lagging Strand (Discontinuous Okazaki fragments) */}
-                <path d="M 270,110 L 160,160 L 50,160" fill="none" stroke="#38bdf8" strokeWidth="3" />
+                <path d="M 270,115 L 160,165 L 40,165" fill="none" stroke="#38bdf8" strokeWidth="3" />
                 {/* Okazaki Fragments with RNA Primers */}
-                <line x1="80" y1="150" x2="110" y2="150" stroke="#f43f5e" strokeWidth="2.5" />
-                <line x1="110" y1="150" x2="160" y2="150" stroke="#4ade80" strokeWidth="2.5" />
-                <line x1="180" y1="140" x2="200" y2="135" stroke="#f43f5e" strokeWidth="2.5" />
-                <line x1="200" y1="135" x2="240" y2="120" stroke="#4ade80" strokeWidth="2.5" />
-                <text x="80" y="180" fill="#f43f5e" fontSize="8" fontWeight="bold">Lagging Strand (Okazaki + RNA Primer)</text>
+                <line x1="70" y1="155" x2="100" y2="155" stroke="#f43f5e" strokeWidth="2.5" />
+                <line x1="100" y1="155" x2="150" y2="155" stroke="#4ade80" strokeWidth="2.5" />
+
+                {/* Ligase sealing indicator between fragments */}
+                {ligaseActionTriggered ? (
+                  <line x1="150" y1="155" x2="175" y2="148" stroke="#10b981" strokeWidth="2.5" />
+                ) : (
+                  <circle cx="150" cy="155" r="4" fill="#f43f5e" stroke="#ffffff" strokeWidth="1" />
+                )}
+
+                <line x1="175" y1="148" x2="195" y2="140" stroke="#f43f5e" strokeWidth="2.5" />
+                <line x1="195" y1="140" x2="235" y2="125" stroke="#4ade80" strokeWidth="2.5" />
+                <text x="70" y="185" fill="#f43f5e" fontSize="8" fontWeight="bold">Lagging Strand (Okazaki + RNA Primer)</text>
 
                 {/* Moving DNA Polymerase Engine */}
                 {(() => {
-                  const pX = 140 + Math.sin(animTime * 3) * 20;
+                  const pX = 140 + Math.sin(animTime * forkSpeed) * 30;
                   return (
-                    <circle cx={pX} cy="65" r="7" fill="#8b5cf6" stroke="#ffffff" strokeWidth="1" />
+                    <g>
+                      <circle cx={pX} cy="70" r="8" fill="#8b5cf6" stroke="#ffffff" strokeWidth="1" />
+                      <text x={pX} y="73" fill="#ffffff" fontSize="6" fontWeight="bold" textAnchor="middle">Pol III</text>
+                    </g>
                   );
                 })()}
 
-                <text x="200" y="208" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  DNA Polymerase III synthesizes strictly 5' ➔ 3' direction | Ligase seals nicks
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  Synthesis Rate: {Math.round(forkSpeed * 500)} bp/s | Substrate dNTP: {dntpConcentration} μM | {proofreadingExo ? '3\'➔5\' Proofreading ON' : 'High Mutation Rate'}
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-cyan-400 font-bold">Template: Semi-conservative</span>
-                <span className="text-emerald-400 font-bold">Leading: Continuous</span>
-                <span className="text-rose-400 font-bold">Lagging: DNA Ligase joins fragments</span>
+                <span className="text-cyan-400 font-bold">Speed: {forkSpeed}x (~{forkSpeed * 500} nt/s)</span>
+                <span className="text-emerald-400 font-bold">DNA Ligase: {ligaseActionTriggered ? 'SEALED' : 'UNSEALED NICK'}</span>
+                <span className="text-purple-400 font-bold">dNTP Conc: {dntpConcentration} μM</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-cyan-400 font-mono text-sm uppercase">Replication Machinery</h4>
+              <h4 className="font-bold text-cyan-400 font-mono text-sm uppercase">Replication Controls</h4>
 
-              <div className="space-y-1.5 text-xs">
-                <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
-                  <div className="font-bold text-amber-300">Helicase:</div>
-                  <div className="text-slate-400 text-[11px]">Unzips double helix breaking H-bonds.</div>
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">Helicase Unwinding Speed:</span>
+                  <span className="text-cyan-400 font-bold">{forkSpeed}x</span>
                 </div>
-                <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
-                  <div className="font-bold text-purple-300">DNA Polymerase:</div>
-                  <div className="text-slate-400 text-[11px]">Adds dNTPs with proofreading capability.</div>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={forkSpeed}
+                  onChange={(e) => setForkSpeed(Number(e.target.value))}
+                  className="w-full accent-cyan-500 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">dNTP Precursor Concentration:</span>
+                  <span className="text-emerald-400 font-bold">{dntpConcentration} μM</span>
                 </div>
-                <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
-                  <div className="font-bold text-emerald-300">DNA Ligase:</div>
-                  <div className="text-slate-400 text-[11px]">Catalyzes phosphodiester bond between Okazaki segments.</div>
-                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={dntpConcentration}
+                  onChange={(e) => setDntpConcentration(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <button
+                  onClick={() => setLigaseActionTriggered(!ligaseActionTriggered)}
+                  className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition border ${
+                    ligaseActionTriggered
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                  }`}
+                >
+                  {ligaseActionTriggered ? '✓ DNA Ligase Active (Phosphodiester sealed)' : '✕ Inhibit DNA Ligase (Nicks exposed)'}
+                </button>
+
+                <button
+                  onClick={() => setProofreadingExo(!proofreadingExo)}
+                  className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition border ${
+                    proofreadingExo
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  {proofreadingExo ? '✓ 3\' ➔ 5\' Exonuclease Proofreading (1 error / 10⁹ bp)' : '✕ Proofreading Off (1 error / 10⁴ bp)'}
+                </button>
               </div>
             </div>
           </div>
@@ -356,18 +448,18 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 3. LAC OPERON GENE REGULATION */}
+      {/* 3. LAC OPERON GENE REGULATION (Manipulative) */}
       {/* ============================================================== */}
       {activeMode === 'lac-operon' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-emerald-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>JACOB &amp; MONOD LAC OPERON INDUCTION MECHANISM</span>
+                <span>JACOB &amp; MONOD OPERON: {isTranscribing ? 'TRANSCRIBING (ON)' : 'REPRESSED (OFF)'}</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
                 {/* Operon Gene Track */}
                 <rect x="40" y="90" width="40" height="30" fill="#64748b" rx="4" />
                 <text x="60" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">i</text>
@@ -378,63 +470,63 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
                 <rect x="135" y="90" width="35" height="30" fill="#f59e0b" rx="4" />
                 <text x="152" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">o</text>
 
-                <rect x="180" y="90" width="60" height="30" fill="#10b981" rx="4" />
-                <text x="210" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">lacZ</text>
+                <rect x="180" y="90" width="65" height="30" fill="#10b981" rx="4" />
+                <text x="212" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">lacZ</text>
 
-                <rect x="250" y="90" width="45" height="30" fill="#10b981" rx="4" />
-                <text x="272" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">lacY</text>
+                <rect x="255" y="90" width="50" height="30" fill="#10b981" rx="4" />
+                <text x="280" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">lacY</text>
 
-                <rect x="305" y="90" width="45" height="30" fill="#10b981" rx="4" />
-                <text x="327" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">lacA</text>
+                <rect x="315" y="90" width="50" height="30" fill="#10b981" rx="4" />
+                <text x="340" y="109" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">lacA</text>
 
-                {/* Repressor Protein */}
-                {!lactosePresent ? (
+                {/* Repressor Protein Binding vs Inactivation */}
+                {isRepressorActive ? (
                   <g>
                     {/* Active Repressor bound to Operator 'o' */}
-                    <circle cx="152" cy="75" r="14" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
-                    <text x="152" y="78" fill="#ffffff" fontSize="7" fontWeight="bold" textAnchor="middle">Repressor</text>
-                    <text x="200" y="50" fill="#ef4444" fontSize="9" fontWeight="bold" textAnchor="middle">
-                      Operator Blocked: RNA Polymerase cannot transcribe
+                    <circle cx="152" cy="72" r="14" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                    <text x="152" y="75" fill="#ffffff" fontSize="7" fontWeight="bold" textAnchor="middle">Repressor</text>
+                    <text x="210" y="48" fill="#ef4444" fontSize="9" fontWeight="bold" textAnchor="middle">
+                      Operator Blocked: RNA Polymerase physically obstructed
                     </text>
                   </g>
                 ) : (
                   <g>
-                    {/* Inactivated Repressor with Inducer (Lactose) bound */}
-                    <circle cx="152" cy="150" r="14" fill="#94a3b8" />
-                    <circle cx="160" cy="145" r="5" fill="#facc15" />
-                    <text x="152" y="175" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      Inactivated by Inducer (Allolactose)
+                    {/* Inactivated Repressor or Defective Mutant */}
+                    <circle cx="152" cy="155" r="14" fill="#94a3b8" />
+                    <circle cx="160" cy="150" r="5" fill="#facc15" />
+                    <text x="152" y="180" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">
+                      {operonGenotype === 'lacI-minus' ? 'Defective lacI Repressor' : 'Inactivated by Allolactose'}
                     </text>
 
                     {/* Transcribing RNA Polymerase moving across lacZYA */}
                     {(() => {
-                      const polX = 180 + ((animTime * 60) % 170);
+                      const polX = 180 + ((animTime * 60) % 180);
                       return (
                         <g>
                           <rect x={polX - 10} y="65" width="28" height="20" rx="4" fill="#8b5cf6" stroke="#ffffff" />
                           <text x={polX + 4} y="78" fill="#ffffff" fontSize="6" fontWeight="bold" textAnchor="middle">RNAP</text>
-                          {/* Polycistronic mRNA line */}
-                          <line x1="180" y1="135" x2={polX} y2="135" stroke="#f43f5e" strokeWidth="2" strokeDasharray="3 2" />
+                          <line x1="180" y1="135" x2={polX} y2="135" stroke="#f43f5e" strokeWidth="2.5" strokeDasharray="3 2" />
+                          <text x="210" y="148" fill="#f43f5e" fontSize="7" fontWeight="bold">Polycistronic mRNA</text>
                         </g>
                       );
                     })()}
                   </g>
                 )}
 
-                <text x="200" y="205" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  {lactosePresent ? 'Lactose Present (Induced): β-galactosidase, Permease, Transacetylase synthesized' : 'Lactose Absent (Repressed): Operon switched OFF (Energy conserved)'}
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  Lactose: {lactosePresent ? 'PRESENT' : 'ABSENT'} | Glucose: {glucoseLevel.toUpperCase()} | Enzyme Yield: {betaGalactosidaseRate}%
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-emerald-400 font-bold">Inducer: {lactosePresent ? 'Lactose Present' : 'Absent'}</span>
-                <span className="text-cyan-400 font-bold">Transcription: {lactosePresent ? 'ACTIVE (ON)' : 'REPRESSED (OFF)'}</span>
-                <span className="text-amber-400 font-bold">Control: Negative Regulation</span>
+                <span className="text-emerald-400 font-bold">Transcription: {isTranscribing ? 'ACTIVE' : 'REPRESSED'}</span>
+                <span className="text-cyan-400 font-bold">CAP-cAMP complex: {isCapCampActive ? 'Bound (High Yield)' : 'Unbound'}</span>
+                <span className="text-amber-400 font-bold">Genotype: {operonGenotype}</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-emerald-400 font-mono text-sm uppercase">Inducer Switch</h4>
+              <h4 className="font-bold text-emerald-400 font-mono text-sm uppercase">Operon Manipulations</h4>
 
               <div>
                 <button
@@ -445,16 +537,56 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
                       : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                   }`}
                 >
-                  {lactosePresent ? '✓ Lactose (Inducer) Added: Operon ON' : '✕ Lactose Absent: Operon OFF'}
+                  {lactosePresent ? '✓ Lactose (Inducer) Present' : '✕ Lactose Absent'}
                 </button>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-emerald-400">Structural Genes:</div>
-                <div className="space-y-1 text-slate-400">
-                  <p><strong>lacZ:</strong> Beta-galactosidase (hydrolyzes lactose into glucose + galactose)</p>
-                  <p><strong>lacY:</strong> Permease (increases membrane permeability to lactose)</p>
-                  <p><strong>lacA:</strong> Transacetylase</p>
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Glucose / Catabolite Repression:</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    onClick={() => setGlucoseLevel('low')}
+                    className={`p-2 rounded-xl font-bold transition border ${
+                      glucoseLevel === 'low'
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Low Glucose (cAMP High)
+                  </button>
+                  <button
+                    onClick={() => setGlucoseLevel('high')}
+                    className={`p-2 rounded-xl font-bold transition border ${
+                      glucoseLevel === 'high'
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    High Glucose (Repressed)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Operon Genotype:</span>
+                <div className="space-y-1 text-xs">
+                  {[
+                    { id: 'wild-type', name: 'Wild-Type (i⁺ p⁺ o⁺ z⁺)' },
+                    { id: 'lacI-minus', name: 'lacI⁻ Mutant (Constitutive)' },
+                    { id: 'lacOc', name: 'lacOᶜ Operator Mutant (Constitutive)' },
+                  ].map((g) => (
+                    <button
+                      key={g.id}
+                      onClick={() => setOperonGenotype(g.id as any)}
+                      className={`w-full text-left p-1.5 rounded-lg border transition ${
+                        operonGenotype === g.id
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -468,60 +600,82 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
       {activeMode === 'gel-electrophoresis' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-amber-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                <span>SUBMARINE AGAROSE GEL BED &amp; UV TRANSILLUMINATOR BANDS</span>
+                <span>SUBMARINE AGAROSE BED ({agarosePercent}% MATRIX) &amp; UV BANDS</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
                 {/* Gel Bed Chamber */}
-                <rect x="60" y="30" width="280" height="150" rx="8" fill={uvLightOn ? '#172554' : '#1e293b'} stroke="#3b82f6" strokeWidth="2" />
+                <rect x="50" y="30" width="320" height="160" rx="8" fill={uvLightOn ? '#172554' : '#1e293b'} stroke="#3b82f6" strokeWidth="2" />
 
                 {/* Electrodes: Cathode (-) at top, Anode (+) at bottom */}
-                <rect x="60" y="30" width="280" height="12" fill="#ef4444" fillOpacity="0.8" />
-                <text x="200" y="40" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">Cathode (-) [Negative Pole]</text>
+                <rect x="50" y="30" width="320" height="12" fill="#ef4444" fillOpacity="0.8" />
+                <text x="210" y="39" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">Cathode (-) [Negative Pole]</text>
 
-                <rect x="60" y="168" width="280" height="12" fill="#10b981" fillOpacity="0.8" />
-                <text x="200" y="177" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">Anode (+) [Positive Pole]</text>
+                <rect x="50" y="178" width="320" height="12" fill="#10b981" fillOpacity="0.8" />
+                <text x="210" y="187" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">Anode (+) [Positive Pole]</text>
 
                 {/* Sample Wells */}
-                {[90, 150, 210, 270].map((wx, i) => (
-                  <rect key={i} x={wx} y="48" width="24" height="10" rx="2" fill="#020617" stroke="#475569" />
+                {[80, 150, 220, 290].map((wx, i) => (
+                  <g key={i}>
+                    <rect x={wx} y="48" width="28" height="10" rx="2" fill="#020617" stroke="#475569" />
+                    <text x={wx + 14} y="45" fill="#94a3b8" fontSize="7" textAnchor="middle">
+                      {i === 0 ? 'Ladder' : i === 1 ? 'EcoRI' : i === 2 ? 'HindIII' : 'Uncut'}
+                    </text>
+                  </g>
                 ))}
 
-                {/* DNA Migration Bands (Fluorescent orange under UV) */}
-                {uvLightOn && (
-                  <g>
-                    {/* Lane 1: DNA Ladder (10kb, 6kb, 3kb, 1kb, 0.5kb) */}
-                    {[65, 85, 110, 135, 155].map((by, i) => (
-                      <line key={`lad-${i}`} x1="92" y1={by} x2="112" y2={by} stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
-                    ))}
+                {/* DNA Migration Bands (Dynamic position based on runTime and voltage and agarose density) */}
+                {uvLightOn && (() => {
+                  const runProgress = (runTimeMinutes / 60) * (voltageV / 100) * (1.2 / agarosePercent);
+                  return (
+                    <g>
+                      {/* Lane 1: Ladder */}
+                      {[65, 85, 110, 135, 160].map((baseY, i) => {
+                        const bandY = Math.min(170, 48 + (baseY - 48) * runProgress);
+                        return (
+                          <line key={`lad-${i}`} x1="82" y1={bandY} x2="106" y2={bandY} stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
+                        );
+                      })}
 
-                    {/* Lane 2: EcoRI Digested Product */}
-                    {[75, 140].map((by, i) => (
-                      <line key={`s1-${i}`} x1="152" y1={by} x2="172" y2={by} stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
-                    ))}
+                      {/* Lane 2: EcoRI Digested Product */}
+                      {[75, 140].map((baseY, i) => {
+                        const bandY = Math.min(170, 48 + (baseY - 48) * runProgress);
+                        return (
+                          <line key={`s1-${i}`} x1="152" y1={bandY} x2="176" y2={bandY} stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
+                        );
+                      })}
 
-                    {/* Lane 3: HindIII Product */}
-                    {[95, 120, 150].map((by, i) => (
-                      <line key={`s2-${i}`} x1="212" y1={by} x2="232" y2={by} stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
-                    ))}
+                      {/* Lane 3: HindIII Product */}
+                      {[95, 120, 150].map((baseY, i) => {
+                        const bandY = Math.min(170, 48 + (baseY - 48) * runProgress);
+                        return (
+                          <line key={`s2-${i}`} x1="222" y1={bandY} x2="246" y2={bandY} stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
+                        );
+                      })}
 
-                    {/* Lane 4: Uncut Circular Plasmid */}
-                    <line x1="272" y1="80" x2="292" y2="80" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
-                  </g>
-                )}
+                      {/* Lane 4: Uncut Circular Plasmid (Coiled) */}
+                      {(() => {
+                        const bandY = Math.min(170, 48 + (80 - 48) * runProgress);
+                        return (
+                          <line x1="292" y1={bandY} x2="316" y2={bandY} stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
+                        );
+                      })()}
+                    </g>
+                  );
+                })()}
 
-                <text x="200" y="205" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  Sieving Effect: Smaller DNA fragments travel faster through agarose matrix towards Anode (+)
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  Agarose Matrix {agarosePercent}% | Migration Time: {runTimeMinutes} min @ {voltageV} V
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
                 <span className="text-amber-400 font-bold">Voltage: {voltageV} V</span>
-                <span className="text-cyan-400 font-bold">Dye: Ethidium Bromide (EtBr)</span>
-                <span className="text-emerald-400 font-bold">Matrix: 1.0% Agarose</span>
+                <span className="text-cyan-400 font-bold">Matrix: {agarosePercent}% Agarose</span>
+                <span className="text-emerald-400 font-bold">Migration Time: {runTimeMinutes} min</span>
               </div>
             </div>
 
@@ -543,8 +697,24 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
 
               <div>
                 <div className="flex justify-between text-xs mb-1 font-mono">
-                  <span className="text-slate-300">Run Voltage:</span>
-                  <span className="text-amber-400 font-bold">{voltageV} V</span>
+                  <span className="text-slate-300">Run Duration (Time):</span>
+                  <span className="text-amber-400 font-bold">{runTimeMinutes} min</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  step="5"
+                  value={runTimeMinutes}
+                  onChange={(e) => setRunTimeMinutes(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">Voltage:</span>
+                  <span className="text-cyan-400 font-bold">{voltageV} V</span>
                 </div>
                 <input
                   type="range"
@@ -552,15 +722,24 @@ export const Class12BiologySim: React.FC<Class12BiologySimProps> = ({
                   max="150"
                   value={voltageV}
                   onChange={(e) => setVoltageV(Number(e.target.value))}
-                  className="w-full accent-amber-500 cursor-pointer"
+                  className="w-full accent-cyan-500 cursor-pointer"
                 />
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-amber-400">NCERT Principle:</div>
-                <p>
-                  DNA fragments are negatively charged due to phosphate backbone (PO₄³⁻). Under electric field, they migrate towards the positive anode (+), separated strictly according to size via agarose sieving.
-                </p>
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">Agarose Gel Concentration:</span>
+                  <span className="text-emerald-400 font-bold">{agarosePercent}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.7"
+                  max="2.0"
+                  step="0.1"
+                  value={agarosePercent}
+                  onChange={(e) => setAgarosePercent(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer"
+                />
               </div>
             </div>
           </div>

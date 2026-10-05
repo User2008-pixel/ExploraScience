@@ -1,20 +1,33 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Formula } from '../common/Formula';
 import { GraphViewer } from '../common/GraphViewer';
-import { Waves } from 'lucide-react';
+import { Waves, Sliders, RotateCcw, Zap } from 'lucide-react';
 
 interface WaveOpticsSimProps {
-  wavelengthNm: number; // nm (400 - 700)
-  slitDistanceMm: number; // mm (0.1 - 1.0)
-  screenDistanceM: number; // m (0.5 - 3.0)
+  wavelengthNm?: number; // nm (380 - 750)
+  slitDistanceMm?: number; // mm (0.1 - 1.0)
+  screenDistanceM?: number; // m (0.5 - 3.0)
 }
 
+const LASER_PRESETS = [
+  { name: 'Red He-Ne Laser', wl: 632.8, color: '#ef4444' },
+  { name: 'Yellow Sodium D-line', wl: 589.0, color: '#eab308' },
+  { name: 'Green DPSS Laser', wl: 532.0, color: '#10b981' },
+  { name: 'Blue Diode Laser', wl: 450.0, color: '#3b82f6' },
+  { name: 'Violet Laser', wl: 405.0, color: '#8b5cf6' },
+];
+
 export const WaveOpticsSim: React.FC<WaveOpticsSimProps> = ({
-  wavelengthNm,
-  slitDistanceMm,
-  screenDistanceM,
+  wavelengthNm: propWl = 632.8,
+  slitDistanceMm: propD = 0.25,
+  screenDistanceM: propDist = 1.5,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Direct manipulation state
+  const [wavelengthNm, setWavelengthNm] = useState<number>(propWl);
+  const [slitDistanceMm, setSlitDistanceMm] = useState<number>(propD);
+  const [screenDistanceM, setScreenDistanceM] = useState<number>(propDist);
 
   const lambda = wavelengthNm * 1e-9;
   const d = slitDistanceMm * 1e-3;
@@ -25,11 +38,11 @@ export const WaveOpticsSim: React.FC<WaveOpticsSimProps> = ({
 
   // Convert wavelength to RGB color
   const wavelengthToColor = (wl: number): string => {
-    if (wl >= 380 && wl < 440) return '#7e22ce'; // Violet
+    if (wl >= 380 && wl < 440) return '#8b5cf6'; // Violet
     if (wl >= 440 && wl < 490) return '#3b82f6'; // Blue
     if (wl >= 490 && wl < 560) return '#10b981'; // Green
-    if (wl >= 560 && wl < 590) return '#eab308'; // Yellow
-    if (wl >= 590 && wl < 635) return '#f97316'; // Orange
+    if (wl >= 560 && wl < 595) return '#eab308'; // Yellow
+    if (wl >= 595 && wl < 635) return '#f97316'; // Orange
     return '#ef4444'; // Red
   };
 
@@ -44,8 +57,10 @@ export const WaveOpticsSim: React.FC<WaveOpticsSimProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+    }
     ctx.scale(dpr, dpr);
 
     const w = rect.width;
@@ -55,7 +70,6 @@ export const WaveOpticsSim: React.FC<WaveOpticsSimProps> = ({
     ctx.fillStyle = '#070b14';
     ctx.fillRect(0, 0, w, h);
 
-    // Layout: Slit barrier on left, optical field in middle, screen on right
     const barrierX = 70;
     const screenX = w - 90;
     const midY = h / 2;
@@ -72,7 +86,7 @@ export const WaveOpticsSim: React.FC<WaveOpticsSimProps> = ({
     ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 10px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${wavelengthNm}nm`, 25, midY + 22);
+    ctx.fillText(`${wavelengthNm.toFixed(0)}nm`, 25, midY + 22);
 
     // Laser beam to slit
     ctx.strokeStyle = laserColor;
@@ -123,119 +137,174 @@ export const WaveOpticsSim: React.FC<WaveOpticsSimProps> = ({
 
     // Draw interference intensity fringes along screen
     const screenH = h - 30;
-    const viewSpanMm = 15; // ±15 mm from center
+    const viewSpanMm = 15;
 
     for (let py = 0; py < screenH; py++) {
       const yMm = ((py - screenH / 2) / (screenH / 2)) * viewSpanMm;
-      // Phase difference delta = 2*pi/lambda * (d * y / D)
       const phaseDiff = (2 * Math.PI * (d * (yMm * 1e-3))) / (lambda * D);
-      // Intensity I = I0 * cos^2(delta / 2)
       const intensity = Math.pow(Math.cos(phaseDiff / 2), 2);
 
-      // Render vertical line of the fringe
       ctx.fillStyle = `${laserColor}${Math.floor(intensity * 255)
         .toString(16)
         .padStart(2, '0')}`;
       ctx.fillRect(screenX + 2, 15 + py, 71, 1);
     }
 
-    // Center fringe marker
-    ctx.strokeStyle = '#f8fafc';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 2]);
-    ctx.beginPath();
-    ctx.moveTo(screenX, midY);
-    ctx.lineTo(screenX + 75, midY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 9px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText('Central Fringe (m=0)', screenX - 6, midY + 3);
-  }, [wavelengthNm, slitDistanceMm, screenDistanceM, laserColor, d, lambda, D]);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Fringes', screenX + 37, 28);
+  }, [wavelengthNm, slitDistanceMm, screenDistanceM, lambda, d, D, laserColor]);
 
   return (
     <div className="space-y-4">
-      {/* Visual Canvas */}
-      <div className="relative bg-[#0f172a] rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs">
-          <Waves className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-slate-300 font-medium">Young's Double Slit Wavefront Interference</span>
+      {/* Simulation Screen */}
+      <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-[#070b14] shadow-2xl">
+        <canvas ref={canvasRef} className="w-full h-72 sm:h-80 block" />
+      </div>
+
+      {/* Direct Manipulation Sliders & Controls */}
+      <div className="bg-[#0b1329] border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Waves className="w-4 h-4 text-cyan-400" />
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+              Young&apos;s Double Slit Wave Interference Manipulator
+            </h4>
+          </div>
+          <span className="text-xs text-cyan-400 font-mono font-bold bg-cyan-950/80 border border-cyan-800 px-2.5 py-0.5 rounded-full">
+            Fringe Width (β): {fringeWidthMm.toFixed(2)} mm
+          </span>
         </div>
 
-        <canvas ref={canvasRef} className="w-full h-64 sm:h-72 block" />
-
-        {/* Telemetry Bar */}
-        <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-          <div className="flex items-center gap-4 text-slate-300">
-            <div>
-              <span className="text-slate-500">Wavelength (λ): </span>
-              <span className="font-bold" style={{ color: laserColor }}>{wavelengthNm}</span> nm
+        {/* Sliders Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-300 font-medium">Laser Wavelength (λ):</span>
+              <span className="font-mono font-bold text-sm" style={{ color: laserColor }}>
+                {wavelengthNm.toFixed(1)} nm
+              </span>
             </div>
-            <div>
-              <span className="text-slate-500">Slit Separation (d): </span>
-              <span className="text-cyan-400 font-bold">{slitDistanceMm.toFixed(2)}</span> mm
-            </div>
-            <div>
-              <span className="text-slate-500">Screen Distance (D): </span>
-              <span className="text-amber-400 font-bold">{screenDistanceM.toFixed(1)}</span> m
-            </div>
-            <div>
-              <span className="text-slate-500">Fringe Width (β): </span>
-              <span className="text-emerald-400 font-bold">{fringeWidthMm.toFixed(2)}</span> mm
+            <input
+              type="range"
+              min="380"
+              max="750"
+              step="1"
+              value={wavelengthNm}
+              onChange={(e) => setWavelengthNm(parseFloat(e.target.value))}
+              className="w-full accent-cyan-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>380 nm (Violet)</span>
+              <span>550 nm (Green)</span>
+              <span>750 nm (Red)</span>
             </div>
           </div>
+
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-amber-300 font-medium">Slit Separation (d):</span>
+              <span className="font-mono font-bold text-amber-400 text-sm">{slitDistanceMm.toFixed(2)} mm</span>
+            </div>
+            <input
+              type="range"
+              min="0.10"
+              max="1.00"
+              step="0.02"
+              value={slitDistanceMm}
+              onChange={(e) => setSlitDistanceMm(parseFloat(e.target.value))}
+              className="w-full accent-amber-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0.10 mm (Broad Fringes)</span>
+              <span>0.50 mm</span>
+              <span>1.00 mm (Dense)</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-sky-300 font-medium">Screen Distance (D):</span>
+              <span className="font-mono font-bold text-sky-400 text-sm">{screenDistanceM.toFixed(2)} m</span>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="3.0"
+              step="0.05"
+              value={screenDistanceM}
+              onChange={(e) => setScreenDistanceM(parseFloat(e.target.value))}
+              className="w-full accent-sky-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0.5 m</span>
+              <span>1.5 m (Standard)</span>
+              <span>3.0 m</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Laser Presets */}
+        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-slate-400 font-medium">Laser Presets:</span>
+            {LASER_PRESETS.map((lp) => (
+              <button
+                key={lp.name}
+                onClick={() => setWavelengthNm(lp.wl)}
+                className={`px-2.5 py-1 rounded-lg font-mono text-xs transition border ${
+                  Math.abs(wavelengthNm - lp.wl) < 1
+                    ? 'bg-slate-800 font-bold border-cyan-400 shadow-md'
+                    : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-600'
+                }`}
+                style={{ color: lp.color }}
+              >
+                {lp.name} ({lp.wl}nm)
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              setWavelengthNm(632.8);
+              setSlitDistanceMm(0.25);
+              setScreenDistanceM(1.5);
+            }}
+            className="text-xs px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset
+          </button>
         </div>
       </div>
 
-      {/* Optical Intensity Distribution Graph */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <GraphViewer
-          title="Fringe Intensity Profile: I(y) vs Position y"
-          xLabel="y"
-          yLabel="I / I_0"
-          xUnit="mm"
-          yUnit=""
-          xDomain={[-8, 8]}
-          yDomain={[0, 1.1]}
-          curveFunction={(yMm) => {
-            const phase = (2 * Math.PI * (d * (yMm * 1e-3))) / (lambda * D);
-            return Math.pow(Math.cos(phase / 2), 2);
-          }}
-          curveColor={laserColor}
-          height={160}
-        />
-        <GraphViewer
-          title="Fringe Width vs Slit Separation: β vs d"
-          xLabel="d"
-          yLabel="\beta(d)"
-          xUnit="mm"
-          yUnit="mm"
-          xDomain={[0.1, 1.0]}
-          yDomain={[0, Math.ceil(((lambda * D) / (0.1 * 1e-3)) * 1e3 * 1.1)]}
-          curveFunction={(dMm) => ((lambda * D) / (dMm * 1e-3)) * 1e3}
-          currentMarker={{ x: slitDistanceMm, y: fringeWidthMm }}
-          curveColor="#38bdf8"
-          height={160}
-        />
-      </div>
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Fringe Width (β)</span>
+          <div className="text-lg font-mono font-bold text-cyan-400">{fringeWidthMm.toFixed(2)} mm</div>
+          <span className="text-[10px] text-slate-500">β = λD / d</span>
+        </div>
 
-      {/* KaTeX Mathematical Breakdown */}
-      <div className="bg-[#131E36] rounded-xl border border-slate-800 p-4">
-        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Live Wave Optics Equations</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-            <div className="text-[11px] text-slate-400 mb-1">Fringe Width Equation</div>
-            <Formula tex={`\\beta = \\frac{\\lambda D}{d} = ${fringeWidthMm.toFixed(2)}\\text{ mm}`} />
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Slit Ratio (D / d)</span>
+          <div className="text-lg font-mono font-bold text-amber-300">{(D / d).toFixed(0)}x</div>
+          <span className="text-[10px] text-slate-500">Geometric magnification</span>
+        </div>
+
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Angular Fringe Width (θ)</span>
+          <div className="text-lg font-mono font-bold text-purple-400">
+            {((lambda / d) * (180 / Math.PI)).toFixed(3)}°
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-            <div className="text-[11px] text-slate-400 mb-1">Bright Fringe Maxima</div>
-            <Formula tex="y_m = m \\frac{\\lambda D}{d} \\quad (m = 0, \\pm 1, \\pm 2)" />
-          </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-            <div className="text-[11px] text-slate-400 mb-1">Dark Fringe Minima</div>
-            <Formula tex="y_n = \\left(n + \\frac{1}{2}\\right) \\frac{\\lambda D}{d}" />
+          <span className="text-[10px] text-slate-500">θ = λ / d</span>
+        </div>
+
+        <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <span className="text-slate-400 block mb-0.5">Interference Law</span>
+          <div className="mt-1">
+            <Formula tex="\beta = \frac{\lambda D}{d} \quad I = 4I_0 \cos^2\left(\frac{\delta}{2}\right)" />
           </div>
         </div>
       </div>

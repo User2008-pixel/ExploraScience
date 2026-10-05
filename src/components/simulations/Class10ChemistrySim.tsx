@@ -40,7 +40,6 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
   };
 
   const [activeMode, setActiveMode] = useState<Chem10Mode>(getInitialMode());
-  const isExploringTopic = Boolean(conceptId);
 
   // Global live animation clock
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -68,48 +67,73 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
   }, [isPlaying, simSpeed]);
 
   // ----------------------------------------------------------------------
-  // MODE 1: CHEMICAL REACTIONS & REDOX
+  // MODE 1: CHEMICAL REACTIONS & REDOX (Manipulative)
   // ----------------------------------------------------------------------
   const [rxnType, setRxnType] = useState<'redox' | 'combination' | 'displacement' | 'double-disp'>('redox');
-  const [reactProgress, setReactProgress] = useState<number>(0.6);
+  const [reactProgress, setReactProgress] = useState<number>(65); // 0 - 100%
+  const [burnerHeatOn, setBurnerHeatOn] = useState<boolean>(true);
+  const [reactionTempC, setReactionTempC] = useState<number>(150); // 25 - 400 C
 
   // ----------------------------------------------------------------------
-  // MODE 2: ACIDS, BASES & pH SCALE
+  // MODE 2: ACIDS, BASES & pH SCALE (Manipulative with titration drops)
   // ----------------------------------------------------------------------
   const [phValue, setPhValue] = useState<number>(variables.ph ?? 7.0);
   const [indicatorType, setIndicatorType] = useState<'universal' | 'litmus' | 'phenolphthalein'>('universal');
+  const [titrationDrops, setTitrationDrops] = useState<number>(0);
 
   const getPhColor = (ph: number) => {
     if (indicatorType === 'phenolphthalein') {
-      return ph >= 8.3 ? '#f43f5e' : '#e2e8f0'; // pink in base, colorless in acid
+      return ph >= 8.3 ? '#f43f5e' : '#f8fafc'; // pink in base, colorless in acid
     }
     if (indicatorType === 'litmus') {
       return ph < 7 ? '#ef4444' : '#3b82f6'; // red in acid, blue in base
     }
-    // Universal indicator color gradient
-    if (ph <= 2) return '#ef4444'; // strong red
-    if (ph <= 4) return '#f97316'; // orange
-    if (ph <= 6) return '#eab308'; // yellow
-    if (ph <= 7.5) return '#22c55e'; // green (neutral)
-    if (ph <= 9) return '#06b6d4'; // cyan
-    if (ph <= 11) return '#3b82f6'; // blue
-    return '#8b5cf6'; // deep violet
+    // Universal indicator gradient
+    if (ph <= 2) return '#ef4444';
+    if (ph <= 4) return '#f97316';
+    if (ph <= 6) return '#eab308';
+    if (ph <= 7.5) return '#22c55e';
+    if (ph <= 9) return '#06b6d4';
+    if (ph <= 11) return '#3b82f6';
+    return '#8b5cf6';
   };
 
   const hPlusConc = Math.pow(10, -phValue);
   const ohMinusConc = Math.pow(10, -(14 - phValue));
 
-  // ----------------------------------------------------------------------
-  // MODE 3: METALS REACTIVITY & IONIC BONDING
-  // ----------------------------------------------------------------------
-  const [selectedMetal, setSelectedMetal] = useState<'Zn' | 'Fe' | 'Cu' | 'Mg'>('Zn');
-  const [ionicCompound, setIonicCompound] = useState<'NaCl' | 'MgO'>('NaCl');
+  const handleAddDropNaOH = () => {
+    setTitrationDrops((prev) => prev + 1);
+    setPhValue((prev) => Math.min(14, parseFloat((prev + (prev < 7 ? 0.8 : 0.3)).toFixed(1))));
+  };
+
+  const handleAddDropHCl = () => {
+    setTitrationDrops((prev) => prev + 1);
+    setPhValue((prev) => Math.max(0, parseFloat((prev - (prev > 7 ? 0.8 : 0.3)).toFixed(1))));
+  };
 
   // ----------------------------------------------------------------------
-  // MODE 4: CARBON COVALENT BONDING & SOAP MICELLES
+  // MODE 3: METALS REACTIVITY & IONIC BONDING (Manipulative)
   // ----------------------------------------------------------------------
+  const [selectedMetal, setSelectedMetal] = useState<'K' | 'Na' | 'Ca' | 'Mg' | 'Zn' | 'Fe' | 'Cu' | 'Au'>('Zn');
+  const [targetSolution, setTargetSolution] = useState<'HCl' | 'CuSO4'>('HCl');
+  const [ionicCompound, setIonicCompound] = useState<'NaCl' | 'MgO'>('NaCl');
+
+  // Reactivity ranking (1 = most reactive, 8 = least reactive)
+  const REACTIVITY_RANKS: Record<string, number> = {
+    K: 1, Na: 2, Ca: 3, Mg: 4, Zn: 5, Fe: 6, Cu: 7, Au: 8,
+  };
+  const metalRank = REACTIVITY_RANKS[selectedMetal];
+  const isReactiveWithHCl = metalRank <= 6; // Cu and Au do not react with dilute HCl
+  const isDisplacementOccurring = targetSolution === 'CuSO4' ? metalRank < 7 : isReactiveWithHCl;
+  const bubbleIntensity = isReactiveWithHCl ? Math.max(1, 9 - metalRank) : 0;
+
+  // ----------------------------------------------------------------------
+  // MODE 4: CARBON BONDING & SOAP MICELLES (Manipulative)
+  // ----------------------------------------------------------------------
+  const [carbonViewType, setCarbonViewType] = useState<'micelle' | 'hydrocarbon'>('micelle');
   const [carbonCompound, setCarbonCompound] = useState<'methane' | 'ethene' | 'ethyne'>('methane');
-  const [showAgitation, setShowAgitation] = useState<boolean>(true);
+  const [agitationSpeed, setAgitationSpeed] = useState<number>(3); // 1 - 5x
+  const [dirtSize, setDirtSize] = useState<number>(35); // 20 - 55 px
 
   return (
     <div className="bg-[#0b1329] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-6">
@@ -130,7 +154,7 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
               </h3>
             </div>
             <p className="text-xs text-slate-400">
-              Live molecular kinetics, ionic electron transfers, dynamic acid-base indicators & soap micelle emulsification
+              Live molecular kinetics, displacement series, dynamic acid-base indicators &amp; carbon bonding / micelles
             </p>
           </div>
         </div>
@@ -174,7 +198,7 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
           { id: 'reactions-redox', label: '1. Reactions & Redox' },
           { id: 'acids-bases-ph', label: '2. Acids, Bases & pH' },
           { id: 'metals-ionic', label: '3. Metals & Ionic Bonding' },
-          { id: 'carbon-micelles', label: '4. Carbon & Soap Micelles' },
+          { id: 'carbon-micelles', label: '4. Carbon Compounds & Micelles' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -196,93 +220,91 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
       {activeMode === 'reactions-redox' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-emerald-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>LIVE REACTION KINETICS & ELECTRON TRANSFER</span>
+                <span>REACTION PROGRESS: {reactProgress}% | TEMP: {reactionTempC}°C</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
-                <defs>
-                  <linearGradient id="flaskGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#1e293b" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#0f172a" stopOpacity="0.8" />
-                  </linearGradient>
-                  <radialGradient id="electronGlow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#38bdf8" />
-                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
-                  </radialGradient>
-                </defs>
-
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
                 {/* Laboratory Bench */}
-                <line x1="30" y1="190" x2="370" y2="190" stroke="#334155" strokeWidth="3" />
+                <line x1="30" y1="195" x2="390" y2="195" stroke="#334155" strokeWidth="3" />
+
+                {/* Bunsen Burner underneath if ON */}
+                {burnerHeatOn && (
+                  <g transform="translate(200, 205)">
+                    <rect x="-8" y="-10" width="16" height="15" fill="#64748b" rx="2" />
+                    <polygon
+                      points={`-8,-10 0,${-25 - Math.sin(animTime * 15) * 5} 8,-10`}
+                      fill="#38bdf8"
+                      opacity="0.9"
+                    />
+                    <polygon
+                      points={`-4,-10 0,${-20 - Math.sin(animTime * 15) * 4} 4,-10`}
+                      fill="#facc15"
+                    />
+                  </g>
+                )}
 
                 {/* Conical Flask */}
                 <path
                   d="M 175,60 L 225,60 L 225,80 L 270,180 L 130,180 L 175,80 Z"
-                  fill="url(#flaskGrad)"
+                  fill="#0f172a99"
                   stroke="#64748b"
                   strokeWidth="2.5"
                 />
-                {/* Liquid Level */}
-                {rxnType === 'redox' && (
-                  <path
-                    d={`M 140,180 L 260,180 L 245,${140 - Math.sin(animTime * 2) * 2} L 155,${140 + Math.sin(animTime * 2) * 2} Z`}
-                    fill="#b45309"
-                    fillOpacity="0.5"
-                  />
-                )}
-                {rxnType === 'displacement' && (
-                  <path
-                    d={`M 140,180 L 260,180 L 245,135 L 155,135 Z`}
-                    fill="#0284c7"
-                    fillOpacity={0.7 - reactProgress * 0.4}
-                  />
-                )}
-                {rxnType === 'double-disp' && (
-                  <g>
-                    <path d="M 140,180 L 260,180 L 245,135 L 155,135 Z" fill="#e2e8f0" fillOpacity="0.3" />
-                    {/* Precipitate settling */}
-                    <ellipse cx="200" cy="178" rx="45" ry="4" fill="#ffffff" fillOpacity="0.9" />
-                  </g>
-                )}
 
-                {/* Dynamic Bubbles / Gas Ejection */}
-                {[0, 1, 2, 3, 4].map((i) => {
-                  const bY = 175 - ((animTime * 40 + i * 25) % 110);
-                  const bX = 180 + ((i * 11 + Math.sin(animTime * 3 + i) * 15) % 40);
+                {/* Reacting Liquid Level */}
+                {(() => {
+                  const pRatio = reactProgress / 100;
+                  let fillCol = '#0284c7';
+                  if (rxnType === 'redox') {
+                    // CuO black to Cu brown
+                    fillCol = pRatio > 0.5 ? '#b45309' : '#1e293b';
+                  } else if (rxnType === 'displacement') {
+                    // CuSO4 blue turns to FeSO4 green
+                    fillCol = pRatio > 0.5 ? '#15803d' : '#0284c7';
+                  } else if (rxnType === 'combination') {
+                    fillCol = '#e2e8f0';
+                  } else {
+                    fillCol = '#cbd5e1';
+                  }
                   return (
-                    <circle
-                      key={i}
-                      cx={bX}
-                      cy={bY}
-                      r={2 + (i % 2)}
-                      fill="#38bdf8"
-                      fillOpacity="0.6"
+                    <path
+                      d="M 140,180 L 260,180 L 245,135 L 155,135 Z"
+                      fill={fillCol}
+                      fillOpacity={0.6 + pRatio * 0.25}
                     />
+                  );
+                })()}
+
+                {/* Dynamic Bubbles */}
+                {Array.from({ length: 6 }).map((_, i) => {
+                  const bY = 175 - ((animTime * (reactionTempC * 0.3) + i * 25) % 110);
+                  const bX = 180 + ((i * 12 + Math.sin(animTime * 4 + i) * 15) % 40);
+                  return (
+                    <circle key={i} cx={bX} cy={bY} r={2 + (i % 2)} fill="#38bdf8" fillOpacity="0.7" />
                   );
                 })}
 
-                {/* Animated Electron Transfer Particles in Redox */}
+                {/* Redox Electron Stream in Redox mode */}
                 {rxnType === 'redox' && (
                   <g>
-                    {/* Reducing Agent (H2) on left -> Oxidizing Agent (CuO) on right */}
-                    <circle cx="80" cy="110" r="28" fill="#1e293b" stroke="#38bdf8" strokeWidth="2" />
-                    <text x="80" y="114" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle">H₂</text>
-                    <text x="80" y="130" fill="#94a3b8" fontSize="8" textAnchor="middle">Oxidized (0 → +1)</text>
+                    <circle cx="80" cy="115" r="28" fill="#1e293b" stroke="#38bdf8" strokeWidth="2" />
+                    <text x="80" y="119" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle">H₂</text>
+                    <text x="80" y="135" fill="#94a3b8" fontSize="8" textAnchor="middle">Oxidized (0 ➔ +1)</text>
 
-                    <circle cx="320" cy="110" r="28" fill="#1e293b" stroke="#f59e0b" strokeWidth="2" />
-                    <text x="320" y="114" fill="#f59e0b" fontSize="12" fontWeight="bold" textAnchor="middle">CuO</text>
-                    <text x="320" y="130" fill="#94a3b8" fontSize="8" textAnchor="middle">Reduced (+2 → 0)</text>
+                    <circle cx="330" cy="115" r="28" fill="#1e293b" stroke="#f59e0b" strokeWidth="2" />
+                    <text x="330" y="119" fill="#f59e0b" fontSize="12" fontWeight="bold" textAnchor="middle">CuO</text>
+                    <text x="330" y="135" fill="#94a3b8" fontSize="8" textAnchor="middle">Reduced (+2 ➔ 0)</text>
 
-                    {/* Flowing electrons */}
                     {(() => {
                       const eProgress = (animTime * 0.8) % 1;
-                      const ex = 108 + eProgress * (320 - 108 - 28);
-                      const ey = 110 - Math.sin(eProgress * Math.PI) * 35;
+                      const ex = 108 + eProgress * (330 - 108 - 28);
+                      const ey = 115 - Math.sin(eProgress * Math.PI) * 35;
                       return (
                         <g>
-                          <path d="M 108,110 Q 200,60 292,110" fill="none" stroke="#38bdf8" strokeDasharray="3 3" strokeWidth="1.5" />
+                          <path d="M 108,115 Q 200,65 302,115" fill="none" stroke="#38bdf8" strokeDasharray="3 3" strokeWidth="1.5" />
                           <circle cx={ex} cy={ey} r="5" fill="#38bdf8" className="animate-pulse" />
                           <text x={ex} y={ey - 8} fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle">2e⁻</text>
                         </g>
@@ -291,123 +313,141 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
                   </g>
                 )}
 
-                {/* Chemical Equation Text */}
-                <text x="200" y="30" textAnchor="middle" fill="#f8fafc" fontSize="13" fontWeight="bold" fontFamily="monospace">
-                  {rxnType === 'redox' && 'CuO (black) + H₂ (g) ➔ Cu (brown) + H₂O (l)'}
-                  {rxnType === 'combination' && 'CaO (quicklime) + H₂O ➔ Ca(OH)₂ (slaked lime) + ΔH'}
+                <text x="210" y="30" textAnchor="middle" fill="#f8fafc" fontSize="12" fontWeight="bold" fontFamily="monospace">
+                  {rxnType === 'redox' && 'CuO (black) + H₂ (g) ➔ Cu (red-brown) + H₂O (l)'}
+                  {rxnType === 'combination' && 'CaO (quicklime) + H₂O ➔ Ca(OH)₂ (slaked lime) + Heat'}
                   {rxnType === 'displacement' && 'Fe (s) + CuSO₄ (blue) ➔ FeSO₄ (green) + Cu (s)'}
                   {rxnType === 'double-disp' && 'Na₂SO₄ (aq) + BaCl₂ (aq) ➔ BaSO₄ ↓ (white ppt) + 2NaCl'}
                 </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-emerald-400 font-bold">Reaction: {rxnType.toUpperCase()}</span>
-                <span className="text-cyan-400 font-bold">Exothermic heat: {rxnType === 'combination' ? '+63.7 kJ/mol' : 'Moderate'}</span>
-                <span className="text-amber-400 font-bold">Electron Flow: Active</span>
+                <span className="text-emerald-400 font-bold">Type: {rxnType.toUpperCase()}</span>
+                <span className="text-amber-400 font-bold">Heat: {burnerHeatOn ? `${reactionTempC}°C (Active)` : '25°C (Ambient)'}</span>
+                <span className="text-cyan-400 font-bold">Conversion: {reactProgress}% Complete</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-emerald-400 font-mono text-sm uppercase">Reaction Selector</h4>
+              <h4 className="font-bold text-emerald-400 font-mono text-sm uppercase">Reaction Manipulations</h4>
 
-              <div className="space-y-2">
-                {[
-                  { id: 'redox', name: 'Redox (Reduction-Oxidation)' },
-                  { id: 'combination', name: 'Combination (Exothermic)' },
-                  { id: 'displacement', name: 'Displacement (Reactivity)' },
-                  { id: 'double-disp', name: 'Double Displacement (Precipitate)' },
-                ].map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => setRxnType(r.id as any)}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition ${
-                      rxnType === r.id
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                        : 'text-slate-400 bg-slate-950/50 hover:bg-slate-800'
-                    }`}
-                  >
-                    {r.name}
-                  </button>
-                ))}
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Reaction Archetype:</span>
+                <div className="space-y-1.5">
+                  {[
+                    { id: 'redox', name: 'Redox (H₂ + CuO ➔ Cu + H₂O)' },
+                    { id: 'combination', name: 'Combination (Quicklime + H₂O)' },
+                    { id: 'displacement', name: 'Single Displacement (Fe + CuSO₄)' },
+                    { id: 'double-disp', name: 'Double Displacement (BaSO₄ ppt)' },
+                  ].map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => setRxnType(r.id as any)}
+                      className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
+                        rxnType === r.id
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-emerald-400">NCERT Core Key Insight:</div>
-                <p>
-                  <strong>OIL RIG:</strong> Oxidation Is Loss of electrons (or addition of oxygen / removal of hydrogen); Reduction Is Gain of electrons (or addition of hydrogen / removal of oxygen).
-                </p>
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">Reaction Progress:</span>
+                  <span className="text-emerald-400 font-bold">{reactProgress}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={reactProgress}
+                  onChange={(e) => setReactProgress(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer"
+                />
               </div>
+
+              <div>
+                <div className="flex justify-between text-xs mb-1 font-mono">
+                  <span className="text-slate-300">Burner Temperature:</span>
+                  <span className="text-amber-400 font-bold">{reactionTempC}°C</span>
+                </div>
+                <input
+                  type="range"
+                  min="25"
+                  max="400"
+                  step="25"
+                  value={reactionTempC}
+                  onChange={(e) => setReactionTempC(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+              </div>
+
+              <button
+                onClick={() => setBurnerHeatOn(!burnerHeatOn)}
+                className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition border flex items-center justify-center gap-1.5 ${
+                  burnerHeatOn
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                <span>{burnerHeatOn ? 'Bunsen Burner ON (Ignited)' : 'Ignite Bunsen Burner'}</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================== */}
-      {/* 2. ACIDS, BASES, UNIVERSAL pH SCALE & INDICATORS */}
+      {/* 2. ACIDS, BASES & pH SCALE */}
       {/* ============================================================== */}
       {activeMode === 'acids-bases-ph' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-cyan-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                <span>DYNAMIC pH TITRATION & HYDRONIUM CONCENTRATION</span>
+                <span>pH = {phValue.toFixed(1)} | {indicatorType.toUpperCase()} INDICATOR</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
-                {/* Beaker with solution colored by pH */}
-                <rect x="130" y="70" width="140" height="120" rx="8" fill="#1e293b" stroke="#64748b" strokeWidth="2.5" />
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
+                {/* Beaker with Indicator Solution */}
+                <rect x="150" y="50" width="120" height="130" rx="8" fill="#1e293b50" stroke="#64748b" strokeWidth="2.5" />
+                {/* Liquid Level with live dynamic pH indicator color */}
                 <rect
-                  x="133"
-                  y={190 - 90}
-                  width="134"
-                  height="88"
+                  x="153"
+                  y="85"
+                  width="114"
+                  height="92"
                   rx="6"
                   fill={getPhColor(phValue)}
-                  fillOpacity="0.7"
+                  fillOpacity="0.75"
                 />
 
-                {/* Ion Particles in solution */}
-                {[0, 1, 2, 3, 4, 5, 6].map((idx) => {
-                  const x = 145 + ((idx * 17 + animTime * 15) % 110);
-                  const y = 115 + Math.sin(animTime * 2 + idx) * 20;
-                  const isH3O = idx % 2 === 0;
-                  if (isH3O && phValue > 10) return null;
-                  if (!isH3O && phValue < 4) return null;
-                  return (
-                    <g key={idx}>
-                      <circle cx={x} cy={y} r="7" fill={isH3O ? '#ef4444' : '#3b82f6'} fillOpacity="0.8" />
-                      <text x={x} y={y + 3} textAnchor="middle" fill="#ffffff" fontSize="6" fontWeight="bold">
-                        {isH3O ? 'H⁺' : 'OH⁻'}
-                      </text>
-                    </g>
-                  );
-                })}
-
-                {/* pH Scale Gradient Bar */}
-                <g transform="translate(40, 20)">
-                  <defs>
-                    <linearGradient id="phGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#ef4444" />
-                      <stop offset="25%" stopColor="#f97316" />
-                      <stop offset="50%" stopColor="#22c55e" />
-                      <stop offset="75%" stopColor="#06b6d4" />
-                      <stop offset="100%" stopColor="#8b5cf6" />
-                    </linearGradient>
-                  </defs>
-                  <rect x="0" y="0" width="320" height="14" rx="7" fill="url(#phGrad)" />
+                {/* pH Spectrum scale strip at bottom */}
+                <g transform="translate(50, 190)">
+                  {Array.from({ length: 15 }).map((_, p) => (
+                    <rect
+                      key={p}
+                      x={p * 21}
+                      y="0"
+                      width="21"
+                      height="12"
+                      fill={getPhColor(p)}
+                    />
+                  ))}
                   {/* Cursor Indicator */}
                   <polygon
-                    points={`${(phValue / 14) * 320},18 ${(phValue / 14) * 320 - 6},26 ${(phValue / 14) * 320 + 6},26`}
+                    points={`${phValue * 21 + 10},12 ${phValue * 21 + 5},22 ${phValue * 21 + 15},22`}
                     fill="#ffffff"
                   />
-                  <text x="5" y="10" fill="#ffffff" fontSize="8" fontWeight="bold">0 (Acid)</text>
-                  <text x="160" y="10" textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="bold">7 (Neutral)</text>
-                  <text x="315" y="10" textAnchor="end" fill="#ffffff" fontSize="8" fontWeight="bold">14 (Alkali)</text>
                 </g>
 
-                {/* Readout label */}
-                <text x="200" y="208" textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="bold" fontFamily="monospace">
+                <text x="210" y="40" textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="bold" fontFamily="monospace">
                   pH = {phValue.toFixed(1)} {phValue < 6.8 ? '(Acidic)' : phValue > 7.2 ? '(Basic / Alkaline)' : '(Neutral)'}
                 </text>
               </svg>
@@ -420,11 +460,11 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-cyan-400 font-mono text-sm uppercase">pH Controller & Indicator</h4>
+              <h4 className="font-bold text-cyan-400 font-mono text-sm uppercase">pH Manipulations</h4>
 
               <div>
                 <div className="flex justify-between text-xs mb-1 font-mono">
-                  <span className="text-slate-300">Target pH:</span>
+                  <span className="text-slate-300">Continuous pH Slider:</span>
                   <span className="text-cyan-400 font-bold">{phValue.toFixed(1)}</span>
                 </div>
                 <input
@@ -439,14 +479,22 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
               </div>
 
               <div>
-                <span className="text-xs text-slate-400 mb-1.5 block">Preset Common Substances:</span>
-                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                  <button onClick={() => setPhValue(1.2)} className="p-1.5 rounded-lg bg-slate-800 text-rose-300 hover:bg-slate-700">Gastric Juice (1.2)</button>
-                  <button onClick={() => setPhValue(2.2)} className="p-1.5 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700">Lemon Juice (2.2)</button>
-                  <button onClick={() => setPhValue(7.0)} className="p-1.5 rounded-lg bg-slate-800 text-emerald-300 hover:bg-slate-700">Pure Water (7.0)</button>
-                  <button onClick={() => setPhValue(7.4)} className="p-1.5 rounded-lg bg-slate-800 text-teal-300 hover:bg-slate-700">Human Blood (7.4)</button>
-                  <button onClick={() => setPhValue(10.5)} className="p-1.5 rounded-lg bg-slate-800 text-cyan-300 hover:bg-slate-700">Milk of Magnesia (10.5)</button>
-                  <button onClick={() => setPhValue(14.0)} className="p-1.5 rounded-lg bg-slate-800 text-purple-300 hover:bg-slate-700">NaOH Solution (14.0)</button>
+                <span className="text-xs text-slate-400 mb-1.5 block">Titration Burette Dropper:</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    onClick={handleAddDropNaOH}
+                    className="p-2 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/40 font-bold flex items-center justify-center gap-1 hover:bg-blue-500/30"
+                  >
+                    <Droplets className="w-3.5 h-3.5" />
+                    <span>+ Drop NaOH</span>
+                  </button>
+                  <button
+                    onClick={handleAddDropHCl}
+                    className="p-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold flex items-center justify-center gap-1 hover:bg-rose-500/30"
+                  >
+                    <Droplets className="w-3.5 h-3.5" />
+                    <span>+ Drop HCl</span>
+                  </button>
                 </div>
               </div>
 
@@ -479,92 +527,164 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
       {activeMode === 'metals-ionic' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-amber-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                <span>ELECTRON SHELL TRANSFER & IONIC CRYSTAL LATTICE</span>
+                <span>METAL: {selectedMetal} in {targetSolution} | DISPLACEMENT: {isDisplacementOccurring ? 'ACTIVE' : 'NO REACTION'}</span>
               </div>
 
-              <svg viewBox="0 0 420 220" className="w-full h-64 select-none">
-                {/* Sodium Atom / Ion (Left) */}
-                <g transform="translate(100, 110)">
-                  <circle cx="0" cy="0" r="14" fill="#3b82f6" />
-                  <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">11p⁺</text>
-                  {/* K shell */}
-                  <circle cx="0" cy="0" r="28" fill="none" stroke="#475569" strokeWidth="1" strokeDasharray="3 3" />
-                  {/* L shell */}
-                  <circle cx="0" cy="0" r="48" fill="none" stroke="#475569" strokeWidth="1" strokeDasharray="3 3" />
-                  {/* M shell (valence) */}
-                  <circle cx="0" cy="0" r="68" fill="none" stroke="#e2e8f0" strokeWidth="1.2" />
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
+                {/* Test Tube on Left */}
+                <g transform="translate(100, 30)">
+                  <rect x="0" y="0" width="40" height="150" rx="10" fill="#1e293b40" stroke="#64748b" strokeWidth="2" />
+                  {/* Solution inside test tube */}
+                  <rect
+                    x="2"
+                    y="50"
+                    width="36"
+                    height="98"
+                    rx="8"
+                    fill={targetSolution === 'CuSO4' ? (isDisplacementOccurring ? '#15803d' : '#0284c7') : '#38bdf8'}
+                    fillOpacity="0.6"
+                  />
+                  {/* Metal Strip inserted */}
+                  <rect x="14" y="20" width="12" height="110" fill="#94a3b8" stroke="#ffffff" strokeWidth="1" />
+                  <text x="20" y="15" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">{selectedMetal}</text>
 
-                  {/* Valence electron jumping */}
-                  {(() => {
-                    const jumpT = (animTime * 0.7) % 1;
-                    const jX = 68 + jumpT * (220 - 68);
-                    const jY = -Math.sin(jumpT * Math.PI) * 40;
-                    return (
-                      <g>
-                        <circle cx={jX} cy={jY} r="4" fill="#facc15" className="animate-pulse" />
-                        <text x={jX} y={jY - 6} fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle">e⁻</text>
-                      </g>
-                    );
-                  })()}
+                  {/* Bubbles if reacting */}
+                  {bubbleIntensity > 0 &&
+                    Array.from({ length: bubbleIntensity * 2 }).map((_, i) => {
+                      const by = 130 - ((animTime * 40 + i * 20) % 80);
+                      return (
+                        <circle key={i} cx={15 + (i % 2) * 10} cy={by} r="2" fill="#ffffff" fillOpacity="0.8" />
+                      );
+                    })}
+                </g>
 
-                  <text x="0" y="85" textAnchor="middle" fill="#38bdf8" fontSize="11" fontWeight="bold">
-                    Na (2,8,1) ➔ Na⁺ (2,8)
+                {/* Ionic Bonding Transfer Diagram on Right */}
+                <g transform="translate(240, 115)">
+                  {ionicCompound === 'NaCl' ? (
+                    <g>
+                      {/* Na+ (2,8) */}
+                      <circle cx="-40" cy="0" r="22" fill="#3b82f6" fillOpacity="0.7" stroke="#38bdf8" strokeWidth="2" />
+                      <text x="-40" y="4" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">Na⁺</text>
+                      <text x="-40" y="32" textAnchor="middle" fill="#94a3b8" fontSize="8">[2, 8]</text>
+
+                      {/* Electron Arrow */}
+                      <line x1="-15" y1="0" x2="15" y2="0" stroke="#facc15" strokeWidth="2" strokeDasharray="3 2" />
+                      <circle cx="0" cy="-6" r="3" fill="#facc15" className="animate-pulse" />
+                      <text x="0" y="-12" textAnchor="middle" fill="#facc15" fontSize="7" fontWeight="bold">1e⁻ transfer</text>
+
+                      {/* Cl- (2,8,8) */}
+                      <circle cx="45" cy="0" r="28" fill="#10b981" fillOpacity="0.7" stroke="#34d399" strokeWidth="2" />
+                      <text x="45" y="4" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">Cl⁻</text>
+                      <text x="45" y="38" textAnchor="middle" fill="#94a3b8" fontSize="8">[2, 8, 8]</text>
+                    </g>
+                  ) : (
+                    <g>
+                      {/* Mg2+ (2,8) */}
+                      <circle cx="-40" cy="0" r="20" fill="#f59e0b" fillOpacity="0.7" stroke="#facc15" strokeWidth="2" />
+                      <text x="-40" y="4" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">Mg²⁺</text>
+                      <text x="-40" y="30" textAnchor="middle" fill="#94a3b8" fontSize="8">[2, 8]</text>
+
+                      <line x1="-15" y1="0" x2="15" y2="0" stroke="#facc15" strokeWidth="2" strokeDasharray="3 2" />
+                      <text x="0" y="-12" textAnchor="middle" fill="#facc15" fontSize="7" fontWeight="bold">2e⁻ transfer</text>
+
+                      {/* O2- (2,8) */}
+                      <circle cx="40" cy="0" r="22" fill="#ef4444" fillOpacity="0.7" stroke="#f87171" strokeWidth="2" />
+                      <text x="40" y="4" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">O²⁻</text>
+                      <text x="40" y="32" textAnchor="middle" fill="#94a3b8" fontSize="8">[2, 8]</text>
+                    </g>
+                  )}
+                  <text x="0" y="65" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">
+                    Electrovalent Crystal Lattice: {ionicCompound}
                   </text>
                 </g>
 
-                {/* Electrostatic Force Arrow */}
-                <g transform="translate(210, 110)">
-                  <line x1="-30" y1="0" x2="30" y2="0" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 2" />
-                  <text x="0" y="-10" textAnchor="middle" fill="#f59e0b" fontSize="9" fontWeight="bold">Ionic Attraction</text>
-                  <text x="0" y="16" textAnchor="middle" fill="#94a3b8" fontSize="8">F = k q₁q₂ / r²</text>
-                </g>
-
-                {/* Chlorine Atom / Ion (Right) */}
-                <g transform="translate(320, 110)">
-                  <circle cx="0" cy="0" r="15" fill="#22c55e" />
-                  <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">17p⁺</text>
-                  {/* K shell */}
-                  <circle cx="0" cy="0" r="28" fill="none" stroke="#475569" strokeWidth="1" strokeDasharray="3 3" />
-                  {/* L shell */}
-                  <circle cx="0" cy="0" r="48" fill="none" stroke="#475569" strokeWidth="1" strokeDasharray="3 3" />
-                  {/* M shell */}
-                  <circle cx="0" cy="0" r="68" fill="none" stroke="#22c55e" strokeWidth="1.2" />
-
-                  <text x="0" y="85" textAnchor="middle" fill="#4ade80" fontSize="11" fontWeight="bold">
-                    Cl (2,8,7) + e⁻ ➔ Cl⁻ (2,8,8)
-                  </text>
-                </g>
+                <text x="210" y="215" textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                  Reactivity: {selectedMetal} rank #{metalRank} in series | {isDisplacementOccurring ? 'Displacement reaction occurs readily' : 'Inert metal: No reaction with solution'}
+                </text>
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-amber-400 font-bold">Bond Type: Electrovalent (Ionic)</span>
-                <span className="text-emerald-400 font-bold">Noble Gas Octet Achieved</span>
-                <span className="text-sky-400 font-bold">Lattice Energy: High (Exothermic)</span>
+                <span className="text-amber-400 font-bold">Metal: {selectedMetal}</span>
+                <span className="text-cyan-400 font-bold">Solution: {targetSolution}</span>
+                <span className="text-emerald-400 font-bold">Ionic Lattice: {ionicCompound}</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-amber-400 font-mono text-sm uppercase">Reactivity Series</h4>
+              <h4 className="font-bold text-amber-400 font-mono text-sm uppercase">Reactivity &amp; Bonds</h4>
 
-              <div className="space-y-1 text-xs">
-                {[
-                  { sym: 'K', name: 'Potassium (Most Reactive)', tag: 'Reacts violently with cold water' },
-                  { sym: 'Na', name: 'Sodium', tag: 'Stored under kerosene' },
-                  { sym: 'Ca', name: 'Calcium', tag: 'Reacts vigorously with water' },
-                  { sym: 'Mg', name: 'Magnesium', tag: 'Reacts with hot steam' },
-                  { sym: 'Zn', name: 'Zinc', tag: 'Displaces Copper from CuSO₄' },
-                  { sym: 'Fe', name: 'Iron', tag: 'Displaces Copper, reacts slowly' },
-                  { sym: 'Cu', name: 'Copper', tag: 'Does not react with dilute acids' },
-                  { sym: 'Au', name: 'Gold (Least Reactive)', tag: 'Noble metal, inert' },
-                ].map((m, i) => (
-                  <div key={m.sym} className="flex items-center justify-between p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px]">
-                    <span className="font-bold text-amber-300">{i + 1}. {m.sym} - {m.name}</span>
-                    <span className="text-[9px] text-slate-400">{m.tag}</span>
-                  </div>
-                ))}
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Select Metal Strip:</span>
+                <div className="grid grid-cols-4 gap-1.5 text-xs font-bold">
+                  {(['K', 'Na', 'Ca', 'Mg', 'Zn', 'Fe', 'Cu', 'Au'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSelectedMetal(m)}
+                      className={`p-2 rounded-xl transition border text-center ${
+                        selectedMetal === m
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Test Solution:</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    onClick={() => setTargetSolution('HCl')}
+                    className={`p-2 rounded-xl font-bold transition border ${
+                      targetSolution === 'HCl'
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Dilute HCl
+                  </button>
+                  <button
+                    onClick={() => setTargetSolution('CuSO4')}
+                    className={`p-2 rounded-xl font-bold transition border ${
+                      targetSolution === 'CuSO4'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    CuSO₄ (aq)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">Ionic Electron Transfer Model:</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    onClick={() => setIonicCompound('NaCl')}
+                    className={`p-2 rounded-xl font-bold transition border ${
+                      ionicCompound === 'NaCl'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    NaCl (1e⁻ transfer)
+                  </button>
+                  <button
+                    onClick={() => setIonicCompound('MgO')}
+                    className={`p-2 rounded-xl font-bold transition border ${
+                      ionicCompound === 'MgO'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    MgO (2e⁻ transfer)
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -577,103 +697,235 @@ export const Class10ChemistrySim: React.FC<Class10ChemistrySimProps> = ({
       {activeMode === 'carbon-micelles' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden">
+            <div className="lg:col-span-8 bg-[#050b14] rounded-2xl border border-slate-800 p-4 flex flex-col items-center justify-center min-h-[350px] relative overflow-hidden">
               <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] font-mono text-violet-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-ping"></span>
-                <span>SOAP MICELLE EMULSIFICATION & HYDROPHOBIC ACTION</span>
+                <span>{carbonViewType === 'micelle' ? 'SOAP MICELLE EMULSIFICATION' : `COVALENT BONDING: ${carbonCompound.toUpperCase()}`}</span>
               </div>
 
-              <svg viewBox="0 0 400 220" className="w-full h-64 select-none">
-                {/* Central Oil / Dirt Droplet */}
-                <circle
-                  cx="200"
-                  cy="110"
-                  r={32 + Math.sin(animTime * 3) * 1.5}
-                  fill="#78350f"
-                  stroke="#b45309"
-                  strokeWidth="2"
-                />
-                <text x="200" y="108" textAnchor="middle" fill="#fde68a" fontSize="10" fontWeight="bold">
-                  Oily Dirt
-                </text>
-                <text x="200" y="120" textAnchor="middle" fill="#d97706" fontSize="7">
-                  Hydrophobic Core
-                </text>
-
-                {/* Radiating Soap Micelle Molecules (16 arms) */}
-                {Array.from({ length: 16 }).map((_, i) => {
-                  const angle = (i * 2 * Math.PI) / 16 + (showAgitation ? animTime * 0.3 : 0);
-                  const innerR = 34;
-                  const outerR = 75;
-                  const x1 = 200 + Math.cos(angle) * innerR;
-                  const y1 = 110 + Math.sin(angle) * innerR;
-                  const x2 = 200 + Math.cos(angle) * outerR;
-                  const y2 = 110 + Math.sin(angle) * outerR;
-
-                  return (
-                    <g key={i}>
-                      {/* Hydrophobic hydrocarbon zig-zag tail */}
-                      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth="2.5" strokeDasharray="3 2" />
-                      {/* Hydrophilic Ionic Head (-COO⁻ Na⁺) facing water */}
-                      <circle cx={x2} cy={y2} r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
-                    </g>
-                  );
-                })}
-
-                {/* Surrounding Water molecules (H2O) */}
-                {[0, 1, 2, 3, 4, 5].map((w) => {
-                  const wAngle = (w * 2 * Math.PI) / 6 - animTime * 0.2;
-                  const wx = 200 + Math.cos(wAngle) * 98;
-                  const wy = 110 + Math.sin(wAngle) * 98;
-                  return (
-                    <text key={w} x={wx} y={wy} textAnchor="middle" fill="#38bdf8" fontSize="8" fontWeight="bold">
-                      H₂O
+              <svg viewBox="0 0 420 230" className="w-full h-64 select-none">
+                {carbonViewType === 'micelle' ? (
+                  <g>
+                    {/* Central Oil / Dirt Droplet */}
+                    <circle
+                      cx="210"
+                      cy="115"
+                      r={dirtSize + Math.sin(animTime * 3) * 1.5}
+                      fill="#78350f"
+                      stroke="#b45309"
+                      strokeWidth="2"
+                    />
+                    <text x="210" y="113" textAnchor="middle" fill="#fde68a" fontSize="10" fontWeight="bold">
+                      Oily Dirt
                     </text>
-                  );
-                })}
+                    <text x="210" y="125" textAnchor="middle" fill="#d97706" fontSize="7">
+                      Hydrophobic
+                    </text>
 
-                <text x="200" y="205" textAnchor="middle" fill="#e2e8f0" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                  Soap Micelle: Hydrophobic Tail in Oil, Hydrophilic Head in Water
-                </text>
+                    {/* Radiating Soap Micelle Molecules (16 arms) */}
+                    {Array.from({ length: 16 }).map((_, i) => {
+                      const angle = (i * 2 * Math.PI) / 16 + animTime * (agitationSpeed * 0.15);
+                      const innerR = dirtSize + 2;
+                      const outerR = dirtSize + 42;
+                      const x1 = 210 + Math.cos(angle) * innerR;
+                      const y1 = 115 + Math.sin(angle) * innerR;
+                      const x2 = 210 + Math.cos(angle) * outerR;
+                      const y2 = 115 + Math.sin(angle) * outerR;
+
+                      return (
+                        <g key={i}>
+                          <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth="2.5" strokeDasharray="3 2" />
+                          <circle cx={x2} cy={y2} r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
+                        </g>
+                      );
+                    })}
+
+                    <text x="210" y="215" textAnchor="middle" fill="#e2e8f0" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                      Hydrophobic Tail Dissolved in Oil | Hydrophilic Head (-COO⁻Na⁺) Facing Water
+                    </text>
+                  </g>
+                ) : (
+                  // Hydrocarbon Covalent structures
+                  <g transform="translate(210, 115)">
+                    {carbonCompound === 'methane' && (
+                      <g>
+                        <circle cx="0" cy="0" r="22" fill="#334155" stroke="#94a3b8" strokeWidth="2" />
+                        <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">C</text>
+                        {/* 4 Single Covalent Bonds */}
+                        {[
+                          { x: 0, y: -50, label: 'H' },
+                          { x: -50, y: 0, label: 'H' },
+                          { x: 50, y: 0, label: 'H' },
+                          { x: 0, y: 50, label: 'H' },
+                        ].map((h, idx) => (
+                          <g key={idx}>
+                            <line x1="0" y1="0" x2={h.x} y2={h.y} stroke="#38bdf8" strokeWidth="3" />
+                            <circle cx={h.x} cy={h.y} r="14" fill="#0284c7" stroke="#ffffff" strokeWidth="1.5" />
+                            <text x={h.x} y={h.y + 4} textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">{h.label}</text>
+                          </g>
+                        ))}
+                        <text x="0" y="85" textAnchor="middle" fill="#38bdf8" fontSize="11" fontWeight="bold">
+                          Tetrahedral CH₄: 4 Single C-H Covalent Bonds (sp³ hybridized, 109.5°)
+                        </text>
+                      </g>
+                    )}
+
+                    {carbonCompound === 'ethene' && (
+                      <g>
+                        {/* C = C Double Bond */}
+                        <circle cx="-35" cy="0" r="20" fill="#334155" stroke="#94a3b8" strokeWidth="2" />
+                        <text x="-35" y="4" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">C</text>
+
+                        <circle cx="35" cy="0" r="20" fill="#334155" stroke="#94a3b8" strokeWidth="2" />
+                        <text x="35" y="4" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">C</text>
+
+                        {/* Double bond lines */}
+                        <line x1="-15" y1="-5" x2="15" y2="-5" stroke="#f43f5e" strokeWidth="3" />
+                        <line x1="-15" y1="5" x2="15" y2="5" stroke="#f43f5e" strokeWidth="3" />
+                        <text x="0" y="-12" textAnchor="middle" fill="#f43f5e" fontSize="8" fontWeight="bold">1σ + 1π</text>
+
+                        {/* H atoms */}
+                        {[
+                          { x: -70, y: -35 },
+                          { x: -70, y: 35 },
+                          { x: 70, y: -35 },
+                          { x: 70, y: 35 },
+                        ].map((h, idx) => (
+                          <g key={idx}>
+                            <line x1={idx < 2 ? -35 : 35} y1="0" x2={h.x} y2={h.y} stroke="#38bdf8" strokeWidth="2.5" />
+                            <circle cx={h.x} cy={h.y} r="12" fill="#0284c7" />
+                            <text x={h.x} y={h.y + 4} textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">H</text>
+                          </g>
+                        ))}
+                        <text x="0" y="85" textAnchor="middle" fill="#f43f5e" fontSize="11" fontWeight="bold">
+                          Ethene C₂H₄: Planar sp² Carbons with 1 Sigma + 1 Pi Bond (120°)
+                        </text>
+                      </g>
+                    )}
+
+                    {carbonCompound === 'ethyne' && (
+                      <g>
+                        {/* C ≡ C Triple Bond */}
+                        <circle cx="-35" cy="0" r="20" fill="#334155" stroke="#94a3b8" strokeWidth="2" />
+                        <text x="-35" y="4" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">C</text>
+
+                        <circle cx="35" cy="0" r="20" fill="#334155" stroke="#94a3b8" strokeWidth="2" />
+                        <text x="35" y="4" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">C</text>
+
+                        {/* Triple bond lines */}
+                        <line x1="-15" y1="-7" x2="15" y2="-7" stroke="#facc15" strokeWidth="2.5" />
+                        <line x1="-15" y1="0" x2="15" y2="0" stroke="#facc15" strokeWidth="2.5" />
+                        <line x1="-15" y1="7" x2="15" y2="7" stroke="#facc15" strokeWidth="2.5" />
+                        <text x="0" y="-14" textAnchor="middle" fill="#facc15" fontSize="8" fontWeight="bold">1σ + 2π</text>
+
+                        {/* Collinear H atoms */}
+                        <line x1="-55" y1="0" x2="-85" y2="0" stroke="#38bdf8" strokeWidth="2.5" />
+                        <circle cx="-85" cy="0" r="12" fill="#0284c7" />
+                        <text x="-85" y="4" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">H</text>
+
+                        <line x1="55" y1="0" x2="85" y2="0" stroke="#38bdf8" strokeWidth="2.5" />
+                        <circle cx="85" cy="0" r="12" fill="#0284c7" />
+                        <text x="85" y="4" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">H</text>
+
+                        <text x="0" y="85" textAnchor="middle" fill="#facc15" fontSize="11" fontWeight="bold">
+                          Ethyne C₂H₂: Linear sp Carbons with 1 Sigma + 2 Pi Bonds (180°)
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                )}
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-violet-400 font-bold">Soap: C₁₇H₃₅COO⁻ Na⁺</span>
-                <span className="text-cyan-400 font-bold">Emulsion: Stable Suspension</span>
-                <span className="text-emerald-400 font-bold">Dirt Removal: Mechanical Rinsing</span>
+                <span className="text-violet-400 font-bold">Mode: {carbonViewType.toUpperCase()}</span>
+                <span className="text-cyan-400 font-bold">Compound: {carbonViewType === 'micelle' ? 'Soap (C₁₇H₃₅COONa)' : carbonCompound}</span>
+                <span className="text-emerald-400 font-bold">Catenation: Active</span>
               </div>
             </div>
 
             <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
-              <h4 className="font-bold text-violet-400 font-mono text-sm uppercase">Carbon Bonding</h4>
+              <h4 className="font-bold text-violet-400 font-mono text-sm uppercase">Carbon Manipulations</h4>
 
-              <div className="space-y-2">
-                {[
-                  { id: 'methane', name: 'Methane (CH₄) - Single Covalent' },
-                  { id: 'ethene', name: 'Ethene (C₂H₄) - Double Bond' },
-                  { id: 'ethyne', name: 'Ethyne (C₂H₂) - Triple Bond' },
-                ].map((c) => (
+              <div>
+                <span className="text-xs text-slate-400 mb-1.5 block">View Selector:</span>
+                <div className="grid grid-cols-2 gap-2 text-xs font-bold">
                   <button
-                    key={c.id}
-                    onClick={() => setCarbonCompound(c.id as any)}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition ${
-                      carbonCompound === c.id
-                        ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40'
-                        : 'text-slate-400 bg-slate-950/50 hover:bg-slate-800'
+                    onClick={() => setCarbonViewType('micelle')}
+                    className={`p-2 rounded-xl transition border ${
+                      carbonViewType === 'micelle'
+                        ? 'bg-violet-500/20 text-violet-300 border-violet-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
                     }`}
                   >
-                    {c.name}
+                    Soap Micelle
                   </button>
-                ))}
+                  <button
+                    onClick={() => setCarbonViewType('hydrocarbon')}
+                    className={`p-2 rounded-xl font-bold transition border ${
+                      carbonViewType === 'hydrocarbon'
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Hydrocarbons
+                  </button>
+                </div>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-2">
-                <div className="font-bold text-violet-400">Versatile Nature of Carbon:</div>
-                <ul className="list-disc list-inside space-y-1 text-slate-400">
-                  <li><strong>Catenation:</strong> Unique ability to form direct covalent bonds with other carbon atoms.</li>
-                  <li><strong>Tetravalency:</strong> Valency of 4 allows bonding with 4 other atoms.</li>
-                </ul>
-              </div>
+              {carbonViewType === 'micelle' ? (
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1 font-mono">
+                      <span className="text-slate-300">Mechanical Agitation (Stir):</span>
+                      <span className="text-violet-400 font-bold">{agitationSpeed}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={agitationSpeed}
+                      onChange={(e) => setAgitationSpeed(Number(e.target.value))}
+                      className="w-full accent-violet-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs mb-1 font-mono">
+                      <span className="text-slate-300">Dirt Droplet Size:</span>
+                      <span className="text-amber-400 font-bold">{dirtSize} px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="55"
+                      value={dirtSize}
+                      onChange={(e) => setDirtSize(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <span className="text-xs text-slate-400 block">Covalent Molecule:</span>
+                  {[
+                    { id: 'methane', name: 'Methane (CH₄) - Single Bonds' },
+                    { id: 'ethene', name: 'Ethene (C₂H₄) - Double Bond' },
+                    { id: 'ethyne', name: 'Ethyne (C₂H₂) - Triple Bond' },
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setCarbonCompound(c.id as any)}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition border ${
+                        carbonCompound === c.id
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

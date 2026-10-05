@@ -1,24 +1,39 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Formula } from '../common/Formula';
-import { Sun, Leaf } from 'lucide-react';
+import { Sun, Leaf, Sliders, RotateCcw, Droplets, Flame, Sparkles, Moon } from 'lucide-react';
 import { GraphViewer } from '../common/GraphViewer';
 
 interface PhotosynthesisSimProps {
-  lightIntensity: number; // 0 - 1000
-  co2Concentration: number; // 100 - 1200 ppm
-  tempC: number; // 5 - 50 °C
+  lightIntensity?: number; // 0 - 1000
+  co2Concentration?: number; // 100 - 1200 ppm
+  tempC?: number; // 5 - 50 °C
 }
 
+type LightSpectrum = 'white' | 'red' | 'blue' | 'green';
+
 export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
-  lightIntensity,
-  co2Concentration,
-  tempC,
+  lightIntensity: propI = 500,
+  co2Concentration: propCO2 = 420,
+  tempC: propT = 28,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Direct manipulation state
+  const [lightIntensity, setLightIntensity] = useState<number>(propI);
+  const [co2Concentration, setCo2Concentration] = useState<number>(propCO2);
+  const [tempC, setTempC] = useState<number>(propT);
+  const [spectrum, setSpectrum] = useState<LightSpectrum>('white');
+
+  // Wavelength efficiency multiplier (Action spectrum of chlorophyll)
+  // Red (660-680 nm) ~ 1.0, Blue (430-450 nm) ~ 0.92, Green (520-550 nm) ~ 0.12 (reflected), White ~ 1.0
+  const spectrumEfficiency =
+    spectrum === 'red' ? 1.05 : spectrum === 'blue' ? 0.95 : spectrum === 'green' ? 0.15 : 1.0;
+
+  const effectiveLight = lightIntensity * spectrumEfficiency;
+
   // Blackman's Law calculation
   // 1. Light reaction capacity (photons driving PSII/PSI)
-  const lightRate = 100 * (lightIntensity / (lightIntensity + 250));
+  const lightRate = 100 * (effectiveLight / (effectiveLight + 250));
   // 2. Dark reaction / RuBisCO carbon capacity
   const co2Rate = 95 * (co2Concentration / (co2Concentration + 300));
   // 3. Thermal bell curve (peak at 28-35°C, denaturation at >42°C)
@@ -31,6 +46,8 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
       ? 'Thermal Denaturation'
       : tempC < 12
       ? 'Low Temperature (Enzyme Sluggishness)'
+      : spectrum === 'green'
+      ? 'Green Light Reflection (Poor Absorption)'
       : lightRate < co2Rate
       ? 'Light Intensity'
       : 'CO₂ Concentration';
@@ -58,8 +75,11 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
     const render = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+      }
+      ctx.save();
       ctx.scale(dpr, dpr);
 
       const w = rect.width;
@@ -75,12 +95,21 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
       ctx.fillStyle = 'rgba(6, 182, 212, 0.08)';
       ctx.fillRect(20, 40, w - 40, h - 50);
 
-      // Light beam overlay from top
-      if (lightIntensity > 50) {
-        const lightAlpha = Math.min(0.4, (lightIntensity / 1000) * 0.4);
+      // Light beam overlay from top with spectrum color
+      if (lightIntensity > 30) {
+        const lightAlpha = Math.min(0.35, (lightIntensity / 1000) * 0.35);
         const lightGrad = ctx.createLinearGradient(0, 0, 0, h);
-        lightGrad.addColorStop(0, `rgba(253, 224, 71, ${lightAlpha})`);
-        lightGrad.addColorStop(1, 'rgba(253, 224, 71, 0)');
+        const lightHue =
+          spectrum === 'red'
+            ? `rgba(239, 68, 68, ${lightAlpha})`
+            : spectrum === 'blue'
+            ? `rgba(59, 130, 246, ${lightAlpha})`
+            : spectrum === 'green'
+            ? `rgba(34, 197, 94, ${lightAlpha})`
+            : `rgba(253, 224, 71, ${lightAlpha})`;
+
+        lightGrad.addColorStop(0, lightHue);
+        lightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = lightGrad;
         ctx.fillRect(20, 40, w - 40, h - 50);
       }
@@ -134,20 +163,19 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
 
       // Update and draw bubbles (O2 evolution)
       ctx.strokeStyle = '#38bdf8';
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
       ctx.lineWidth = 1.2;
 
       for (let i = bubbles.length - 1; i >= 0; i--) {
         const b = bubbles[i];
         b.y -= b.speed;
-        b.x += Math.sin(b.y * 0.1) * 0.5; // slight wobble
+        b.x += Math.sin(b.y * 0.1) * 0.5;
 
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        // Remove bubbles reaching water surface
         if (b.y < 50) {
           bubbles.splice(i, 1);
         }
@@ -155,22 +183,31 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
 
       // Photons animation falling from above
       photonOffset = (photonOffset + 2) % 30;
-      if (lightIntensity > 100) {
-        ctx.fillStyle = '#fef08a';
+      if (lightIntensity > 50) {
+        ctx.fillStyle =
+          spectrum === 'red'
+            ? '#f87171'
+            : spectrum === 'blue'
+            ? '#60a5fa'
+            : spectrum === 'green'
+            ? '#4ade80'
+            : '#fef08a';
+
         for (let x = 40; x < w - 40; x += 40) {
           const py = 45 + ((x + photonOffset) % (clY - 70));
           ctx.beginPath();
-          ctx.arc(x, py, 2, 0, Math.PI * 2);
+          ctx.arc(x, py, 2.5, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
+      ctx.restore();
       animId = requestAnimationFrame(render);
     };
 
     render();
     return () => cancelAnimationFrame(animId);
-  }, [lightIntensity, co2Concentration, tempC, bubbleRate]);
+  }, [lightIntensity, co2Concentration, tempC, bubbleRate, spectrum]);
 
   return (
     <div className="space-y-4">
@@ -191,7 +228,7 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
 
         {/* Telemetry bar */}
         <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-          <div className="flex items-center gap-4 text-slate-300">
+          <div className="flex flex-wrap items-center gap-4 text-slate-300">
             <div>
               <span className="text-slate-500">Light Yield: </span>
               <span className="text-yellow-400 font-bold">{lightRate.toFixed(1)}%</span>
@@ -201,10 +238,143 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
               <span className="text-sky-400 font-bold">{co2Rate.toFixed(1)}%</span>
             </div>
             <div>
-              <span className="text-slate-500">O₂ Evolution: </span>
-              <span className="text-emerald-400 font-bold">{(limitingRate).toFixed(1)} μmol/m²·s</span>
+              <span className="text-slate-500">O₂ Evolution Rate: </span>
+              <span className="text-emerald-400 font-bold">{limitingRate.toFixed(1)} μmol/m²·s</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Direct Manipulation Sliders & Controls */}
+      <div className="bg-[#0b1329] border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-cyan-400" />
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+              Blackman&apos;s Law Environmental Manipulator
+            </h4>
+          </div>
+          <span className="text-xs text-emerald-400 font-mono font-bold bg-emerald-950/80 border border-emerald-800 px-2.5 py-0.5 rounded-full">
+            Active Photosynthetic Rate: {limitingRate.toFixed(1)}% of Vmax
+          </span>
+        </div>
+
+        {/* Sliders Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-yellow-300 font-medium">Light Intensity (I):</span>
+              <span className="font-mono font-bold text-yellow-400 text-sm">{lightIntensity} μmol</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1000"
+              step="10"
+              value={lightIntensity}
+              onChange={(e) => setLightIntensity(parseInt(e.target.value))}
+              className="w-full accent-yellow-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0 (Dark)</span>
+              <span>500 (Moderate)</span>
+              <span>1000 (Full Sun)</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-sky-300 font-medium">CO₂ Concentration:</span>
+              <span className="font-mono font-bold text-sky-400 text-sm">{co2Concentration} ppm</span>
+            </div>
+            <input
+              type="range"
+              min="100"
+              max="1400"
+              step="20"
+              value={co2Concentration}
+              onChange={(e) => setCo2Concentration(parseInt(e.target.value))}
+              className="w-full accent-sky-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>100 ppm</span>
+              <span>420 ppm (Ambient)</span>
+              <span>1400 ppm (Greenhouse)</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-rose-300 font-medium">Temperature (°C):</span>
+              <span className="font-mono font-bold text-rose-400 text-sm">{tempC}°C</span>
+            </div>
+            <input
+              type="range"
+              min="5"
+              max="50"
+              step="1"
+              value={tempC}
+              onChange={(e) => setTempC(parseInt(e.target.value))}
+              className="w-full accent-rose-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>5°C</span>
+              <span>28°C (Optimum)</span>
+              <span>50°C (Denatured)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Spectrum Selector & Quick Presets */}
+        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-slate-400 font-medium">Light Spectrum:</span>
+            <button
+              onClick={() => setSpectrum('white')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition ${
+                spectrum === 'white' ? 'bg-yellow-400 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+            >
+              Full White Light
+            </button>
+            <button
+              onClick={() => setSpectrum('red')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition ${
+                spectrum === 'red' ? 'bg-red-500 text-white font-bold' : 'bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+            >
+              Red (680 nm • High Absorption)
+            </button>
+            <button
+              onClick={() => setSpectrum('blue')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition ${
+                spectrum === 'blue' ? 'bg-blue-500 text-white font-bold' : 'bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+            >
+              Blue (450 nm • Carotenoids/Chl a)
+            </button>
+            <button
+              onClick={() => setSpectrum('green')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition ${
+                spectrum === 'green' ? 'bg-emerald-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+            >
+              Green (530 nm • Reflected!)
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              setLightIntensity(500);
+              setCo2Concentration(420);
+              setTempC(28);
+              setSpectrum('white');
+            }}
+            className="text-xs px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset Ambient
+          </button>
         </div>
       </div>
 
@@ -219,7 +389,8 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
           xDomain={[0, 1000]}
           yDomain={[0, 100]}
           curveFunction={(I) => {
-            const lR = 100 * (I / (I + 250));
+            const effI = I * spectrumEfficiency;
+            const lR = 100 * (effI / (effI + 250));
             return Math.min(lR, co2Rate) * tempFactor;
           }}
           currentMarker={{ x: lightIntensity, y: limitingRate }}
@@ -246,14 +417,16 @@ export const PhotosynthesisSim: React.FC<PhotosynthesisSimProps> = ({
 
       {/* Biochemical Equation */}
       <div className="bg-[#131E36] rounded-xl border border-slate-800 p-4">
-        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Photosynthesis Biochemical Equation</h4>
+        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+          Photosynthesis Biochemical Equation
+        </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center">
           <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
             <div className="text-[11px] text-slate-400 mb-1">Global Stoichiometric Equation</div>
             <Formula tex="6\text{CO}_2 + 6\text{H}_2\text{O} + h\nu \xrightarrow{\text{chlorophyll}} \text{C}_6\text{H}_{12}\text{O}_6 + 6\text{O}_2" />
           </div>
           <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-            <div className="text-[11px] text-slate-400 mb-1">Blackman's Law of Limiting Factors</div>
+            <div className="text-[11px] text-slate-400 mb-1">Blackman&apos;s Law of Limiting Factors</div>
             <Formula tex="\text{Rate} = \min\left( f(I_{\text{light}}), g([\text{CO}_2]), h(T) \right)" />
           </div>
         </div>
