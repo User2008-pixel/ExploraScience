@@ -27,6 +27,7 @@ import { ConfirmResetModal } from './components/common/ConfirmResetModal';
 import { UndoToast } from './components/common/UndoToast';
 import { CreditRewardToast } from './components/common/CreditRewardToast';
 import { ReviewModal } from './components/common/ReviewModal';
+import { AdminReviewsView } from './components/admin/AdminReviewsView';
 import { UserProfile, GradeLevel } from './types/auth';
 
 import {
@@ -63,12 +64,33 @@ export default function App() {
   const [tutorInitialQuestion, setTutorInitialQuestion] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [reviewModalInitialView, setReviewModalInitialView] = useState<'form' | 'inbox'>('form');
 
-  const handleOpenReviewModal = (view: 'form' | 'inbox' = 'form') => {
-    setReviewModalInitialView(view);
-    setIsReviewModalOpen(true);
-  };
+  // Private Admin Route Handler (/admin/reviews)
+  const [isAdminRoute, setIsAdminRoute] = useState(() =>
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/reviews')
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsAdminRoute(window.location.pathname.startsWith('/admin/reviews'));
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Creator secret shortcut: Ctrl+Shift+A or Cmd+Shift+A
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        window.history.pushState({}, '', '/admin/reviews');
+        setIsAdminRoute(true);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const handleOpenPractical = (practicalId: string) => {
     setSelectedPracticalId(practicalId);
@@ -388,6 +410,18 @@ export default function App() {
   const selectedConcept = CONCEPTS_DATA.find((c) => c.id === selectedConceptId);
   const selectedCase = DETECTIVE_CASES.find((c) => c.id === selectedCaseId);
 
+  // If visitor navigated to private admin route, render private AdminReviewsView
+  if (isAdminRoute) {
+    return (
+      <AdminReviewsView
+        onBackToApp={() => {
+          window.history.pushState({}, '', '/');
+          setIsAdminRoute(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col font-sans lab-grid">
       {/* Top Main Navigation Bar */}
@@ -679,7 +713,7 @@ export default function App() {
             onResetProgress={handleRequestResetProgress}
             currentUser={currentUser}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
-            onOpenReviewModal={(view) => handleOpenReviewModal(view || 'form')}
+            onOpenReviewModal={() => setIsReviewModalOpen(true)}
           />
         )}
       </main>
@@ -741,7 +775,7 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => handleOpenReviewModal('form')}
+              onClick={() => setIsReviewModalOpen(true)}
               className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500/15 via-cyan-500/15 to-emerald-500/15 hover:from-purple-500/25 hover:to-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-semibold text-xs transition flex items-center gap-2 shadow-sm"
               title="Email Creator for Suggestions & Queries (Privacy Protected)"
             >
@@ -757,7 +791,7 @@ export default function App() {
 
       {/* Floating Bottom Quick Review Button (Accessible Across All Views) */}
       <button
-        onClick={() => handleOpenReviewModal('form')}
+        onClick={() => setIsReviewModalOpen(true)}
         className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold p-3 sm:px-4 sm:py-2.5 rounded-full shadow-2xl shadow-cyan-500/30 border border-cyan-400/40 flex items-center gap-2 transition transform hover:scale-105 active:scale-95 group"
         title="Email Creator: Share Suggestions, Queries & Reviews (Privacy Protected)"
       >
@@ -773,7 +807,6 @@ export default function App() {
       <ReviewModal
         isOpen={isReviewModalOpen}
         onClose={() => setIsReviewModalOpen(false)}
-        initialView={reviewModalInitialView}
         defaultUserName={currentUser.isGuest ? '' : currentUser.name}
         activeContext={
           selectedCase

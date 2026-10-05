@@ -11,9 +11,8 @@ import {
   HelpCircle,
   FlaskConical,
   Bug,
-  Inbox,
-  Trash2,
   Lock,
+  Mail,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -22,17 +21,6 @@ interface ReviewModalProps {
   onClose: () => void;
   defaultUserName?: string;
   activeContext?: string;
-  initialView?: 'form' | 'inbox';
-}
-
-interface StoredReviewItem {
-  id: string;
-  name: string;
-  category: string;
-  rating: number;
-  topicContext?: string;
-  message: string;
-  createdAt: string;
 }
 
 export const ReviewModal: React.FC<ReviewModalProps> = ({
@@ -40,10 +28,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   onClose,
   defaultUserName = '',
   activeContext = 'General ScienceLab',
-  initialView = 'form',
 }) => {
-  const [activeView, setActiveView] = useState<'form' | 'inbox'>(initialView);
   const [name, setName] = useState(defaultUserName || '');
+  const [email, setEmail] = useState('');
   const [category, setCategory] = useState<'Suggestion' | 'Query' | 'Review' | 'Simulation Idea' | 'Bug Report'>('Suggestion');
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
@@ -52,61 +39,27 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Inbox state for reading received reviews
-  const [reviewsList, setReviewsList] = useState<StoredReviewItem[]>([]);
-  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setActiveView(initialView);
-    }
-  }, [isOpen, initialView]);
-
   useEffect(() => {
     if (defaultUserName && !name) {
       setName(defaultUserName);
     }
   }, [defaultUserName]);
 
-  useEffect(() => {
-    if (isOpen && activeView === 'inbox') {
-      fetchReviews();
-    }
-  }, [isOpen, activeView]);
-
   if (!isOpen) return null;
-
-  const fetchReviews = async () => {
-    setIsLoadingReviews(true);
-    try {
-      const res = await fetch('/api/reviews');
-      if (res.ok) {
-        const data = await res.json();
-        setReviewsList(data.reviews || []);
-      }
-    } catch (e) {
-      console.error('Failed to load reviews:', e);
-    } finally {
-      setIsLoadingReviews(false);
-    }
-  };
-
-  const handleDeleteReview = async (id: string) => {
-    try {
-      const res = await fetch(`/api/reviews/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setReviewsList((prev) => prev.filter((r) => r.id !== id));
-      }
-    } catch (e) {
-      console.error('Failed to delete review:', e);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) {
-      setErrorMessage('Please enter your suggestion or query before sending.');
+    if (!message.trim() || message.trim().length < 3) {
+      setErrorMessage('Please enter your suggestion or query (at least 3 characters).');
       return;
+    }
+
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        setErrorMessage('Please enter a valid email format, or leave the email field empty.');
+        return;
+      }
     }
 
     setErrorMessage(null);
@@ -115,6 +68,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
     try {
       const payload = {
         name: name.trim() || 'Student Explorer',
+        email: email.trim() || undefined,
         category,
         rating,
         message: message.trim(),
@@ -127,8 +81,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         body: JSON.stringify(payload),
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        throw new Error('Failed to send review. Please try again.');
+        throw new Error(data.error || 'Failed to send query. Please try again.');
       }
 
       setSubmitSuccess(true);
@@ -148,6 +103,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
   const handleResetAndNew = () => {
     setMessage('');
+    setEmail('');
     setSubmitSuccess(false);
     setErrorMessage(null);
   };
@@ -172,7 +128,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-[#0f172a] border border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden relative my-6">
-        {/* Glow Header Accent */}
+        {/* Header Glow Accent */}
         <div className="h-1.5 w-full bg-gradient-to-r from-cyan-500 via-purple-500 to-amber-500" />
 
         {/* Modal Top Bar */}
@@ -184,133 +140,29 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-extrabold text-white tracking-tight">
-                  {activeView === 'form' ? 'Send Review & Suggestions' : 'Creator Inbox (Name Only)'}
+                  Send Review &amp; Queries
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-bold">
                   Direct Dispatch
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                {activeView === 'form'
-                  ? 'Email the creator directly for queries, ideas, or feedback.'
-                  : 'All reviews received by the creator with privacy safeguards active.'}
+                Share questions, simulation suggestions, or feedback directly with the creator.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => {
-                setActiveView(activeView === 'form' ? 'inbox' : 'form');
-              }}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 transition flex items-center gap-1.5"
-              title={activeView === 'form' ? 'View Creator Inbox' : 'Back to Send Form'}
-            >
-              {activeView === 'form' ? (
-                <>
-                  <Inbox className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="hidden sm:inline">Creator Inbox</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="hidden sm:inline">New Review</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition border border-slate-800"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition border border-slate-800"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Modal Body */}
+        {/* Modal Content */}
         <div className="p-6 max-h-[75vh] overflow-y-auto space-y-5">
-          {activeView === 'inbox' ? (
-            /* CREATOR INBOX VIEW */
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-mono text-slate-400">
-                  Received Reviews ({reviewsList.length})
-                </div>
-                <button
-                  onClick={fetchReviews}
-                  className="text-xs text-cyan-400 hover:underline font-mono"
-                >
-                  Refresh
-                </button>
-              </div>
-
-              {isLoadingReviews ? (
-                <div className="text-center py-12 text-xs text-slate-400">
-                  Loading suggestions &amp; reviews...
-                </div>
-              ) : reviewsList.length === 0 ? (
-                <div className="text-center py-12 bg-slate-900/40 rounded-2xl border border-slate-800/80 p-6 space-y-2">
-                  <div className="w-10 h-10 rounded-xl bg-slate-800 mx-auto flex items-center justify-center text-slate-400">
-                    <Inbox className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-white">No reviews yet</h4>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    Be the first to send a query, suggestion, or rating to the creator!
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {reviewsList.map((rev) => (
-                    <div
-                      key={rev.id}
-                      className="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 space-y-2.5 shadow-sm"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-sm">
-                            {rev.name}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                            {rev.category}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center text-amber-400 text-xs">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`w-3.5 h-3.5 ${
-                                  i < rev.rating
-                                    ? 'fill-amber-400 text-amber-400'
-                                    : 'text-slate-700'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteReview(rev.id)}
-                            className="p-1 hover:bg-slate-800 rounded text-slate-500 hover:text-rose-400 transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
-                        {rev.message}
-                      </p>
-
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-800/80">
-                        <span>Context: {rev.topicContext || 'General'}</span>
-                        <span>{new Date(rev.createdAt).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : submitSuccess ? (
+          {submitSuccess ? (
             /* SUBMIT SUCCESS SCREEN */
             <div className="py-8 text-center space-y-4">
               <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10 animate-bounce">
@@ -319,20 +171,25 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               <div className="space-y-1">
                 <h4 className="text-xl font-bold text-white">Review &amp; Query Dispatched!</h4>
                 <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
-                  Your feedback and suggestions have been securely forwarded to the creator.
+                  Your message has been securely forwarded to the creator.
+                  {email ? ' The creator can reply directly to your email address.' : ''}
                 </p>
               </div>
 
-              {/* Strict Privacy Reminder */}
+              {/* Privacy Reminder */}
               <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-left max-w-md mx-auto space-y-2 text-xs">
                 <div className="flex items-center gap-2 text-emerald-400 font-bold">
                   <ShieldCheck className="w-4 h-4 shrink-0" />
-                  <span>Privacy Integrity Maintained</span>
+                  <span>Privacy Safeguard Active</span>
                 </div>
                 <ul className="text-slate-400 space-y-1 text-[11px] list-disc list-inside">
-                  <li>The creator can only see your name (<strong>{name || 'Student Explorer'}</strong>).</li>
-                  <li>No email address, phone number, location, or credentials were captured.</li>
-                  <li>The creator's private contact details remain protected on the secure server.</li>
+                  <li>Your query was encrypted and forwarded to the creator&apos;s private inbox.</li>
+                  {email ? (
+                    <li>Your email was attached only for creator reply purposes. It is never displayed publicly.</li>
+                  ) : (
+                    <li>Submitted completely anonymously without personal contact data.</li>
+                  )}
+                  <li>The creator&apos;s email address remains securely protected by server proxy.</li>
                 </ul>
               </div>
 
@@ -352,22 +209,22 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               </div>
             </div>
           ) : (
-            /* FORM VIEW */
+            /* PUBLIC FORM VIEW */
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Privacy Notice Banner */}
+              {/* Privacy Banner */}
               <div className="p-3.5 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 flex items-start gap-3">
                 <Lock className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                 <div className="text-[11px] text-slate-300 leading-relaxed">
-                  <strong className="text-white font-semibold">Zero-Data Exposure:</strong> The creator's email address is kept private and hidden on the server. In return, only your name is shared—no email, phone, or personal details are collected.
+                  <strong className="text-white font-semibold">Protected Dispatch:</strong> Your message is sent directly to the creator&apos;s inbox via secure server proxy. Communications remain completely confidential.
                 </div>
               </div>
 
-              {/* Name Field (Only Personal Detail Collected) */}
+              {/* Name Field */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
                   <span>Your Name</span>
-                  <span className="text-[10px] font-mono text-cyan-400 font-normal">
-                    (Only personal detail shown to creator)
+                  <span className="text-[10px] font-mono text-slate-400 font-normal">
+                    (How you wish to be addressed)
                   </span>
                 </label>
                 <input
@@ -378,6 +235,30 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                   maxLength={80}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 focus:border-cyan-500 text-white text-xs placeholder:text-slate-500 outline-none transition"
                 />
+              </div>
+
+              {/* Optional Email Field (for Creator Replies) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Your Email Address</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-cyan-400 font-normal">
+                    (Optional — so the creator can reply)
+                  </span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. student@school.edu (optional)"
+                  maxLength={120}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 focus:border-cyan-500 text-white text-xs placeholder:text-slate-500 outline-none transition"
+                />
+                <p className="text-[10.5px] text-slate-400 leading-normal">
+                  If provided, the creator can hit &quot;Reply&quot; to answer your question. Your email is never public.
+                </p>
               </div>
 
               {/* Category Pills */}
@@ -479,7 +360,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               <div className="pt-2 flex items-center justify-between gap-3">
                 <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  No spam • Direct server proxy
+                  Spam protected • Private dispatch
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -503,7 +384,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5 text-slate-950" />
-                        <span>Email Creator</span>
+                        <span>Send Query</span>
                       </>
                     )}
                   </button>

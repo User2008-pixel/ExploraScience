@@ -4,6 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 
@@ -718,17 +719,99 @@ Check the **Unit Converter** to quickly verify measurement dimensions and our **
     }
   });
 
-  // --- Creator Reviews, Feedback & Query Endpoints ---
-  // The developer's email is kept strictly on the server side (never sent to client/browser)
+  // --- Creator Authentication & Private Reviews System ---
   const DEVELOPER_EMAIL = process.env.DEVELOPER_EMAIL || 'kirtan.bhutada.2008@gmail.com';
-  const REVIEWS_DIR = path.resolve(__dirname, 'data');
-  const REVIEWS_FILE = path.resolve(REVIEWS_DIR, 'user_reviews.json');
+  const DATA_DIR = path.resolve(__dirname, 'data');
+  const REVIEWS_FILE = path.resolve(DATA_DIR, 'user_reviews.json');
+  const ADMIN_AUTH_FILE = path.resolve(DATA_DIR, 'admin_auth.json');
 
-  // Ensure storage directory and file exist
+  // Rate Limiting Storage
+  const reviewSubmissionRateLimit = new Map<string, { count: number; resetAt: number }>();
+  const adminLoginRateLimit = new Map<string, { count: number; lockedUntil: number }>();
+
+  // In-memory active admin session tokens (token -> { createdAt, expiresAt })
+  const activeAdminSessions = new Map<string, { createdAt: number; expiresAt: number }>();
+
+  const getClientIp = (req: express.Request): string => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string') {
+      return forwarded.split(',')[0].trim();
+    }
+    return req.socket.remoteAddress || '127.0.0.1';
+  };
+
+  const getAdminAuth = (): { adminEmail: string; passwordHash: string; salt: string; initializedAt: string } | null => {
+    try {
+      if (!fs.existsSync(ADMIN_AUTH_FILE)) {
+        return null;
+      }
+      const raw = fs.readFileSync(ADMIN_AUTH_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      if (data && data.passwordHash && data.salt) {
+        return data;
+      }
+      return null;
+    } catch (e) {
+      console.error('Error reading admin auth file:', e);
+      return null;
+    }
+  };
+
+  const saveAdminAuth = (auth: { adminEmail: string; passwordHash: string; salt: string; initializedAt: string }) => {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(ADMIN_AUTH_FILE, JSON.stringify(auth, null, 2), 'utf8');
+  };
+
+  const hashPassword = (password: string, salt: string): string => {
+    return crypto.scryptSync(password, salt, 64).toString('hex');
+  };
+
+  const verifyPassword = (password: string, salt: string, expectedHash: string): boolean => {
+    try {
+      const calculatedHash = crypto.scryptSync(password, salt, 64).toString('hex');
+      return crypto.timingSafeEqual(Buffer.from(calculatedHash, 'hex'), Buffer.from(expectedHash, 'hex'));
+    } catch {
+      return false;
+    }
+  };
+
+  const extractAdminToken = (req: express.Request): string => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return authHeader.substring(7).trim();
+    }
+    if (req.headers.cookie) {
+      const cookies = req.headers.cookie.split(';');
+      for (const c of cookies) {
+        const [k, v] = c.trim().split('=');
+        if (k === 'admin_token' && v) {
+          return decodeURIComponent(v);
+        }
+      }
+    }
+    return '';
+  };
+
+  // Middleware: Require Authenticated Admin Session
+  const requireAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const token = extractAdminToken(req);
+    if (!token || !activeAdminSessions.has(token)) {
+      return res.status(401).json({ error: 'Unauthorized. Admin authentication required.' });
+    }
+    const session = activeAdminSessions.get(token)!;
+    if (Date.now() > session.expiresAt) {
+      activeAdminSessions.delete(token);
+      return res.status(401).json({ error: 'Session expired. Please log in again.' });
+    }
+    next();
+  };
+
   const getStoredReviews = (): any[] => {
     try {
-      if (!fs.existsSync(REVIEWS_DIR)) {
-        fs.mkdirSync(REVIEWS_DIR, { recursive: true });
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
       }
       if (!fs.existsSync(REVIEWS_FILE)) {
         fs.writeFileSync(REVIEWS_FILE, JSON.stringify([], null, 2), 'utf8');
@@ -744,8 +827,8 @@ Check the **Unit Converter** to quickly verify measurement dimensions and our **
 
   const saveStoredReviews = (reviews: any[]) => {
     try {
-      if (!fs.existsSync(REVIEWS_DIR)) {
-        fs.mkdirSync(REVIEWS_DIR, { recursive: true });
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
       }
       fs.writeFileSync(REVIEWS_FILE, JSON.stringify(reviews, null, 2), 'utf8');
     } catch (e) {
@@ -753,36 +836,314 @@ Check the **Unit Converter** to quickly verify measurement dimensions and our **
     }
   };
 
-  // Submit user review / suggestion / query
-  // STRICT PRIVACY: Only the user's name is collected and saved. No personal details, email, or IP are collected or shown.
-  app.post('/api/reviews/submit', async (req, res) => {
-    try {
-      const { name, category, rating, message, topicContext } = req.body;
+  // --- ADMIN AUTH ROUTES ---
 
-      if (!message || typeof message !== 'string' || message.trim().length === 0) {
-        return res.status(400).json({ error: 'Message content is required.' });
+  // Check admin status (never reveals email or credentials)
+  app.get('/api/admin/status', (req, res) => {
+    const authData = getAdminAuth();
+    const token = extractAdminToken(req);
+    let isAuthenticated = false;
+
+    if (token && activeAdminSessions.has(token)) {
+      const session = activeAdminSessions.get(token)!;
+      if (Date.now() <= session.expiresAt) {
+        isAuthenticated = true;
+      } else {
+        activeAdminSessions.delete(token);
+      }
+    }
+
+    return res.json({
+      isInitialized: Boolean(authData && authData.passwordHash),
+      isAuthenticated,
+    });
+  });
+
+  // One-time creator setup (disabled permanently once initialized)
+  app.post('/api/admin/setup', (req, res) => {
+    try {
+      const existing = getAdminAuth();
+      if (existing && existing.passwordHash) {
+        return res.status(403).json({ error: 'Admin account has already been initialized. Setup is permanently closed.' });
       }
 
+      const { email, password } = req.body;
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || typeof email !== 'string' || !emailRegex.test(email.trim())) {
+        return res.status(400).json({ error: 'A valid admin email address is required.' });
+      }
+
+      if (!password || typeof password !== 'string' || password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+      }
+
+      const salt = crypto.randomBytes(16).toString('hex');
+      const passwordHash = hashPassword(password, salt);
+      const sanitizedEmail = email.trim().toLowerCase();
+
+      saveAdminAuth({
+        adminEmail: sanitizedEmail,
+        passwordHash,
+        salt,
+        initializedAt: new Date().toISOString(),
+      });
+
+      // Generate session token for immediate admin login
+      const token = crypto.randomBytes(32).toString('hex');
+      activeAdminSessions.set(token, {
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      });
+
+      res.cookie('admin_token', token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+
+      console.log('[Creator Setup] Admin account successfully initialized.');
+      return res.json({
+        success: true,
+        token,
+        message: 'Admin account successfully initialized.',
+      });
+    } catch (err: any) {
+      console.error('Error during admin setup:', err);
+      return res.status(500).json({ error: 'Internal error during setup.' });
+    }
+  });
+
+  // Admin Login
+  app.post('/api/admin/login', (req, res) => {
+    try {
+      const ip = getClientIp(req);
+      const now = Date.now();
+      const rateInfo = adminLoginRateLimit.get(ip);
+
+      if (rateInfo && rateInfo.lockedUntil > now) {
+        const remainingMin = Math.ceil((rateInfo.lockedUntil - now) / 60000);
+        return res.status(429).json({ error: `Too many failed attempts. Locked for ${remainingMin} minute(s).` });
+      }
+
+      const { email, password } = req.body;
+      const authData = getAdminAuth();
+
+      if (!authData || !authData.passwordHash) {
+        return res.status(400).json({ error: 'Admin account is not yet initialized.' });
+      }
+
+      if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ error: 'Email and password are required.' });
+      }
+
+      const isEmailMatch = authData.adminEmail === email.trim().toLowerCase();
+      const isPasswordMatch = verifyPassword(password, authData.salt, authData.passwordHash);
+
+      if (!isEmailMatch || !isPasswordMatch) {
+        // Record failed attempt
+        const currentCount = (rateInfo ? rateInfo.count : 0) + 1;
+        const lockedUntil = currentCount >= 5 ? now + 15 * 60 * 1000 : 0;
+        adminLoginRateLimit.set(ip, { count: currentCount, lockedUntil });
+
+        return res.status(401).json({ error: 'Invalid admin credentials.' });
+      }
+
+      // Successful login: reset rate limit
+      adminLoginRateLimit.delete(ip);
+
+      const token = crypto.randomBytes(32).toString('hex');
+      activeAdminSessions.set(token, {
+        createdAt: now,
+        expiresAt: now + 24 * 60 * 60 * 1000,
+      });
+
+      res.cookie('admin_token', token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+
+      console.log(`[Admin Login] Successful admin authentication from ${ip}`);
+      return res.json({
+        success: true,
+        token,
+        message: 'Admin authentication successful.',
+      });
+    } catch (err: any) {
+      console.error('Error in admin login:', err);
+      return res.status(500).json({ error: 'Internal error during login.' });
+    }
+  });
+
+  // Admin Password Reset (Verified by Creator Admin Email)
+  app.post('/api/admin/reset', (req, res) => {
+    try {
+      const { email, newPassword } = req.body;
+      const authData = getAdminAuth();
+
+      if (!authData || !authData.passwordHash) {
+        return res.status(400).json({ error: 'Admin account is not yet initialized.' });
+      }
+
+      if (!email || !newPassword || typeof email !== 'string' || typeof newPassword !== 'string') {
+        return res.status(400).json({ error: 'Email and new password are required.' });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+      }
+
+      if (authData.adminEmail !== email.trim().toLowerCase()) {
+        return res.status(401).json({ error: 'Entered email does not match registered creator email.' });
+      }
+
+      const salt = crypto.randomBytes(16).toString('hex');
+      const passwordHash = hashPassword(newPassword, salt);
+
+      saveAdminAuth({
+        adminEmail: authData.adminEmail,
+        passwordHash,
+        salt,
+        initializedAt: authData.initializedAt,
+      });
+
+      // Clear any lockout on the client IP
+      const ip = getClientIp(req);
+      adminLoginRateLimit.delete(ip);
+
+      // Issue active session token
+      const token = crypto.randomBytes(32).toString('hex');
+      activeAdminSessions.set(token, {
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      });
+
+      res.cookie('admin_token', token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+
+      console.log(`[Admin Reset] Password reset successfully for ${authData.adminEmail}`);
+      return res.json({
+        success: true,
+        token,
+        message: 'Password reset successfully. You are now logged in.',
+      });
+    } catch (err: any) {
+      console.error('Error during admin password reset:', err);
+      return res.status(500).json({ error: 'Internal error during password reset.' });
+    }
+  });
+
+  // Admin Logout
+  app.post('/api/admin/logout', (req, res) => {
+    const token = extractAdminToken(req);
+    if (token) {
+      activeAdminSessions.delete(token);
+    }
+    res.clearCookie('admin_token', { path: '/' });
+    return res.json({ success: true, message: 'Logged out successfully.' });
+  });
+
+  // --- PRIVATE ADMIN REVIEWS API (Strict Authorization Required) ---
+
+  // Retrieve all submitted reviews & queries (Creator Only)
+  app.get('/api/admin/reviews', requireAdminAuth, (_req, res) => {
+    try {
+      const reviews = getStoredReviews();
+      return res.json({ reviews });
+    } catch (err: any) {
+      console.error('Error retrieving admin reviews:', err);
+      return res.status(500).json({ error: 'Failed to retrieve reviews.' });
+    }
+  });
+
+  // Delete review (Creator Only)
+  app.delete('/api/admin/reviews/:id', requireAdminAuth, (req, res) => {
+    try {
+      const { id } = req.params;
+      const existing = getStoredReviews();
+      const filtered = existing.filter((r) => r.id !== id);
+      saveStoredReviews(filtered);
+      return res.json({ success: true, remaining: filtered.length });
+    } catch (err: any) {
+      console.error('Error deleting review:', err);
+      return res.status(500).json({ error: 'Failed to delete review.' });
+    }
+  });
+
+  // --- PUBLIC USER REVIEW SUBMISSION ENDPOINT ---
+  // Public visitors can ONLY INSERT their own review/query.
+  // Never reveals creator email, other user submissions, or admin details.
+  app.post('/api/reviews/submit', async (req, res) => {
+    try {
+      const ip = getClientIp(req);
+      const now = Date.now();
+
+      // Rate limit check: max 5 submissions per 10 minutes per IP
+      const rateInfo = reviewSubmissionRateLimit.get(ip);
+      if (rateInfo) {
+        if (now < rateInfo.resetAt) {
+          if (rateInfo.count >= 5) {
+            const waitSec = Math.ceil((rateInfo.resetAt - now) / 1000);
+            return res.status(429).json({
+              error: `Submission limit reached. Please wait ${waitSec} seconds before sending another inquiry.`,
+            });
+          }
+          rateInfo.count += 1;
+        } else {
+          reviewSubmissionRateLimit.set(ip, { count: 1, resetAt: now + 10 * 60 * 1000 });
+        }
+      } else {
+        reviewSubmissionRateLimit.set(ip, { count: 1, resetAt: now + 10 * 60 * 1000 });
+      }
+
+      const { name, email, category, rating, message, topicContext } = req.body;
+
+      if (!message || typeof message !== 'string' || message.trim().length < 3) {
+        return res.status(400).json({ error: 'Please enter a valid message (minimum 3 characters).' });
+      }
+
+      // Input Validation & Sanitization
       const sanitizedName = (name && typeof name === 'string' && name.trim().length > 0)
-        ? name.trim().slice(0, 80)
+        ? name.trim().slice(0, 80).replace(/<[^>]*>?/gm, '')
         : 'Student Explorer';
 
-      const sanitizedCategory = (category && typeof category === 'string')
-        ? category.trim().slice(0, 50)
+      let sanitizedEmail: string | null = null;
+      if (email && typeof email === 'string' && email.trim().length > 0) {
+        const trimmedEmail = email.trim().slice(0, 120);
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(trimmedEmail)) {
+          return res.status(400).json({ error: 'Please enter a valid email format, or leave the email field empty.' });
+        }
+        sanitizedEmail = trimmedEmail;
+      }
+
+      const allowedCategories = ['Suggestion', 'Query', 'Review', 'Simulation Idea', 'Bug Report'];
+      const sanitizedCategory = (category && allowedCategories.includes(category))
+        ? category
         : 'Suggestion';
 
-      const sanitizedRating = typeof rating === 'number' && rating >= 1 && rating <= 5
+      const sanitizedRating = (typeof rating === 'number' && rating >= 1 && rating <= 5)
         ? Math.round(rating)
         : 5;
 
       const sanitizedMessage = message.trim().slice(0, 3000);
       const sanitizedContext = (topicContext && typeof topicContext === 'string')
-        ? topicContext.trim().slice(0, 100)
+        ? topicContext.trim().slice(0, 100).replace(/<[^>]*>?/gm, '')
         : 'General ScienceLab';
 
       const newReview = {
         id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        name: sanitizedName, // ONLY their name is visible to creator
+        name: sanitizedName,
+        email: sanitizedEmail,
         category: sanitizedCategory,
         rating: sanitizedRating,
         topicContext: sanitizedContext,
@@ -790,14 +1151,16 @@ Check the **Unit Converter** to quickly verify measurement dimensions and our **
         createdAt: new Date().toISOString(),
       };
 
-      // Persist to storage
+      // Persist to database (Only admin can SELECT/READ this later)
       const existing = getStoredReviews();
       existing.unshift(newReview);
       saveStoredReviews(existing);
 
-      // Attempt sending email to developer if SMTP environment variables are present
-      // In all environments, developer's email is NEVER revealed to the client.
-      let emailDispatched = false;
+      // Determine recipient email (strictly server-side, never returned to browser)
+      const adminAuth = getAdminAuth();
+      const targetAdminEmail = adminAuth?.adminEmail || process.env.ADMIN_EMAIL || DEVELOPER_EMAIL;
+
+      // Dispatch Email Notification to Creator
       const smtpHost = process.env.SMTP_HOST;
       const smtpUser = process.env.SMTP_USER;
       const smtpPass = process.env.SMTP_PASS;
@@ -816,106 +1179,87 @@ Check the **Unit Converter** to quickly verify measurement dimensions and our **
           });
 
           await transporter.sendMail({
-            from: `"ScienceLab Explorer Feedback" <${smtpUser}>`,
-            to: DEVELOPER_EMAIL,
-            subject: `[ScienceLab Review] New ${sanitizedCategory} from ${sanitizedName}`,
-            text: `You received a new submission on ScienceLab Explorer:
+            from: `"ScienceLab Inquiries" <${smtpUser}>`,
+            to: targetAdminEmail,
+            // If user provided email, set Reply-To so creator can hit "Reply" in their email client
+            replyTo: sanitizedEmail || undefined,
+            subject: `[ScienceLab Query] New ${sanitizedCategory} from ${sanitizedName}`,
+            text: `You have received a new query/review submission on ScienceLab Explorer:
 
 Sender Name: ${sanitizedName}
+User Email: ${sanitizedEmail ? sanitizedEmail : 'Not provided (Anonymous)'}
 Category: ${sanitizedCategory}
 Rating: ${sanitizedRating} / 5 Stars
-Context / Topic: ${sanitizedContext}
+Topic Context: ${sanitizedContext}
 Submitted At: ${new Date().toLocaleString()}
 
-Message / Query:
+Message:
 --------------------------------------------------
 ${sanitizedMessage}
 --------------------------------------------------
 
-* Note: As per privacy policy, no sender contact details, emails, or personal data were collected. Only the sender's display name is visible.`,
+${sanitizedEmail ? `⚡ To reply directly to ${sanitizedName}, simply click Reply in your email client (reply-to is configured as ${sanitizedEmail}).` : 'No email was provided by the user.'}`,
             html: `
               <div style="font-family: Arial, sans-serif; background: #0f172a; color: #f8fafc; padding: 24px; border-radius: 12px; max-width: 600px;">
-                <h2 style="color: #38bdf8; margin-top: 0;">📬 New ScienceLab Review &amp; Query</h2>
+                <h2 style="color: #38bdf8; margin-top: 0;">📬 New ScienceLab User Submission</h2>
                 <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                   <p style="margin: 4px 0;"><strong>Sender Name:</strong> ${sanitizedName}</p>
+                  <p style="margin: 4px 0;"><strong>User Email:</strong> ${sanitizedEmail ? `<a href="mailto:${sanitizedEmail}" style="color: #38bdf8;">${sanitizedEmail}</a>` : '<span style="color: #94a3b8;">Not provided</span>'}</p>
                   <p style="margin: 4px 0;"><strong>Category:</strong> <span style="background: #0284c7; color: white; padding: 2px 8px; border-radius: 4px;">${sanitizedCategory}</span></p>
                   <p style="margin: 4px 0;"><strong>Rating:</strong> ${'★'.repeat(sanitizedRating)}${'☆'.repeat(5 - sanitizedRating)} (${sanitizedRating}/5)</p>
                   <p style="margin: 4px 0;"><strong>Topic Context:</strong> ${sanitizedContext}</p>
                   <p style="margin: 4px 0; color: #94a3b8; font-size: 12px;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
                 </div>
                 <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #38bdf8;">
-                  <h4 style="margin: 0 0 8px 0; color: #cbd5e1;">Message / Suggestion / Query:</h4>
+                  <h4 style="margin: 0 0 8px 0; color: #cbd5e1;">User Query / Suggestion:</h4>
                   <p style="white-space: pre-wrap; line-height: 1.6; margin: 0; color: #f1f5f9;">${sanitizedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
                 </div>
-                <p style="color: #64748b; font-size: 11px; margin-top: 20px;">
-                  🔒 <em>Privacy Protection:</em> Only the sender's name is recorded. No personal details, passwords, or emails were requested.
-                </p>
+                ${sanitizedEmail ? `
+                  <div style="margin-top: 16px; padding: 12px; background: #064e3b; border-radius: 8px; border: 1px solid #059669;">
+                    <p style="margin: 0; font-size: 13px; color: #a7f3d0;">
+                      ✉️ <strong>Direct Reply Enabled:</strong> Hit "Reply" in your email client to email <strong>${sanitizedEmail}</strong> directly.
+                    </p>
+                  </div>
+                ` : ''}
               </div>
             `,
           });
-          emailDispatched = true;
-          console.log(`[Review Forwarded via Email] To hidden creator inbox for submission from "${sanitizedName}"`);
+          console.log(`[Email Dispatched] To creator inbox with replyTo=${sanitizedEmail || 'none'}`);
         } catch (emailErr) {
-          console.warn('[Review Email Dispatch Note] Could not send via SMTP transport (saved in reviews database):', emailErr);
+          console.warn('[Email Dispatch Warning] Could not send via SMTP transport (saved in reviews database):', emailErr);
         }
       } else {
-        // Log formatted review dispatch notice on server
+        // Fallback console log with user email details
         console.log(`
 ======================================================================
-📬 NEW USER REVIEW & QUERY DISPATCHED TO CREATOR
-To: [Creator Inbox (Hidden From Users)]
-From: ${sanitizedName}
-Category: ${sanitizedCategory} | Rating: ${sanitizedRating} Stars
+📬 NEW USER QUERY / REVIEW RECEIVED
+To Creator: [Admin Email Protected Server-Side]
+From: ${sanitizedName} (${sanitizedEmail ? sanitizedEmail : 'No user email provided'})
+Category: ${sanitizedCategory} | Rating: ${sanitizedRating} / 5 Stars
 Context: ${sanitizedContext}
 Message: "${sanitizedMessage}"
+Reply-To: ${sanitizedEmail ? sanitizedEmail : 'N/A'}
 ======================================================================`);
       }
 
+      // Security: Never send admin email or database contents in response
       return res.json({
         success: true,
-        message: 'Your review and suggestions have been delivered directly to the creator. Thank you for helping shape ScienceLab Explorer!',
-        reviewId: newReview.id,
-        emailDispatched,
+        message: 'Your review and suggestions have been delivered to the creator. Thank you for your feedback!',
       });
     } catch (err: any) {
       console.error('Error submitting review:', err);
-      return res.status(500).json({ error: 'Failed to submit review. Please try again.' });
+      return res.status(500).json({ error: 'Failed to submit query. Please try again later.' });
     }
   });
 
-  // Get all reviews for the creator (only shows user's name, category, rating, message, and date)
+  // Block unauthorized legacy access to reviews
   app.get('/api/reviews', (_req, res) => {
-    try {
-      const reviews = getStoredReviews();
-      // Strictly map only public/creator-safe fields: only name, no other personal details!
-      const safeReviews = reviews.map((r) => ({
-        id: r.id,
-        name: r.name,
-        category: r.category,
-        rating: r.rating,
-        topicContext: r.topicContext,
-        message: r.message,
-        createdAt: r.createdAt,
-      }));
-      return res.json({ reviews: safeReviews });
-    } catch (err: any) {
-      console.error('Error retrieving reviews:', err);
-      return res.status(500).json({ error: 'Failed to retrieve reviews.' });
-    }
+    return res.status(401).json({ error: 'Unauthorized. Reviews are private to the creator.' });
   });
 
-  // Delete/Archive a review by ID
-  app.delete('/api/reviews/:id', (req, res) => {
-    try {
-      const { id } = req.params;
-      const existing = getStoredReviews();
-      const filtered = existing.filter((r) => r.id !== id);
-      saveStoredReviews(filtered);
-      return res.json({ success: true, remaining: filtered.length });
-    } catch (err: any) {
-      console.error('Error deleting review:', err);
-      return res.status(500).json({ error: 'Failed to delete review.' });
-    }
+  app.delete('/api/reviews/:id', (_req, res) => {
+    return res.status(401).json({ error: 'Unauthorized. Reviews are private to the creator.' });
   });
 
   // Vite integration
