@@ -3279,7 +3279,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: 'F_B = V_{\\text{displaced}} \\cdot \\rho_{\\text{fluid}} \\cdot g, \\quad \\text{Apparent Weight} = W_{\\text{true}} - F_B, \\quad \\text{Relative Density} = \\frac{\\rho_{\\text{substance}}}{\\rho_{\\text{water}}}',
     formulaExplanation:
       'A floating body displaces a volume of fluid whose weight exactly matches the total weight of the floating body.',
-    simulationType: 'ideal-gas',
+    simulationType: 'archimedes-buoyancy',
     variables: [
       {
         id: 'objectVolumeCm3',
@@ -4063,7 +4063,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: '2d = v \\cdot t \\implies d = \\frac{v \\cdot t}{2}, \\quad f_{\\text{ultrasound}} > 20{,}000\\text{ Hz}',
     formulaExplanation:
       'Where d is depth of seabed or flaw, v is ultrasound speed in water or metal, and t is pulse transit and reflection return time.',
-    simulationType: 'shm-oscillator',
+    simulationType: 'sonar-ultrasound',
     variables: [
       {
         id: 'waterSpeedMs',

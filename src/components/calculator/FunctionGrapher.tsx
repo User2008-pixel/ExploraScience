@@ -26,6 +26,7 @@ import {
   Copy,
   TrendingUp,
   Spline,
+  Download,
 } from 'lucide-react';
 
 interface FunctionItem {
@@ -561,6 +562,17 @@ export const FunctionGrapher: React.FC = () => {
     ctx.restore();
   }, [viewState, compiledFns, evalContext, showGrid, traceX, showTangent, showIntegralTool, integralA, integralB, integralFnId, mathToPixel]);
 
+  // Export Graph as PNG for lab reports
+  const handleDownloadPNG = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = 'math-graph-lab-report.png';
+    link.href = dataUrl;
+    link.click();
+  };
+
   // Canvas Mouse / Touch Event Handlers for Panning & Tracing
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     isDragging.current = true;
@@ -839,6 +851,14 @@ export const FunctionGrapher: React.FC = () => {
                 title="Toggle Tangent Line & Derivative"
               >
                 Tangent (dy/dx)
+              </button>
+              <button
+                onClick={handleDownloadPNG}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition"
+                title="Download Graph as PNG for Lab Reports"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export PNG</span>
               </button>
             </div>
 

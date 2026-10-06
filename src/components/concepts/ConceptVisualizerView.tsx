@@ -30,6 +30,8 @@ import { GravitationFreeFallSim } from '../simulations/GravitationFreeFallSim';
 import { FrictionSim } from '../simulations/FrictionSim';
 import { MomentumConservationSim } from '../simulations/MomentumConservationSim';
 import { ActionReactionSim } from '../simulations/ActionReactionSim';
+import { ArchimedesBuoyancySim } from '../simulations/ArchimedesBuoyancySim';
+import { SonarUltrasoundSim } from '../simulations/SonarUltrasoundSim';
 import { Class9ChemistrySim } from '../simulations/Class9ChemistrySim';
 import { Class9BiologySim } from '../simulations/Class9BiologySim';
 import { Class10PhysicsSim } from '../simulations/Class10PhysicsSim';
@@ -169,6 +171,20 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
             appliedForce={varValues.appliedForce ?? 40}
             mass={varValues.mass ?? 5}
             frictionCoeff={varValues.frictionCoeff ?? 0.2}
+          />
+        );
+      case 'archimedes-buoyancy':
+        return (
+          <ArchimedesBuoyancySim
+            initialDensity={varValues.objectDensity ?? 0.6}
+            initialVolume={varValues.objectVolumeCm3 ?? 500}
+          />
+        );
+      case 'sonar-ultrasound':
+      case 'ultrasound-sonar':
+        return (
+          <SonarUltrasoundSim
+            initialDistanceM={varValues.returnTimeS ? (varValues.returnTimeS * 1531) / 2 : 2618}
           />
         );
       case 'ohms-law':

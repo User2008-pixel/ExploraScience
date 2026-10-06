@@ -66,7 +66,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-7 space-y-4">
+          <div className="lg:col-span-12 space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold tracking-wide">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Next-Gen Science Education • {userGrade} Curriculum</span>
@@ -76,7 +76,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               ScienceLab <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">Explorer</span>
             </h1>
 
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl">
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl">
               Understand difficult scientific concepts through interactive visualization, empirical prediction, virtual manipulation, and forensic reasoning — not rote memorization.
             </p>
 
@@ -122,59 +122,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <ShieldAlert className="w-4 h-4 text-cyan-400" />
                 <span>Science Detective</span>
               </button>
-            </div>
-          </div>
-
-          {/* Mini Interactive Hero Canvas (Trajectory live demonstrator) */}
-          <div className="lg:col-span-5 bg-slate-950/90 rounded-2xl border border-slate-800 p-4 space-y-3 shadow-inner">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-300 font-mono font-semibold flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-cyan-400" />
-                Live Kinematic Sandbox
-              </span>
-              <span className="text-cyan-400 font-mono">{heroAngle}° Launch</span>
-            </div>
-
-            <div className="relative w-full h-36 bg-[#0B1120] rounded-xl border border-slate-800/80 overflow-hidden flex items-end px-3 pb-2">
-              {/* Parabolic curve SVG */}
-              <svg viewBox="0 0 300 120" className="w-full h-full">
-                <path
-                  d={`M 10,110 Q ${10 + (heroRange / 60) * 140},${110 - (heroMaxH / 30) * 90} ${Math.min(290, 10 + (heroRange / 60) * 280)},110`}
-                  fill="none"
-                  stroke="#38bdf8"
-                  strokeWidth="3"
-                />
-                {/* Launch apex */}
-                <circle
-                  cx={10 + (heroRange / 60) * 140}
-                  cy={110 - (heroMaxH / 30) * 90}
-                  r="4"
-                  fill="#f59e0b"
-                />
-                {/* Landing marker */}
-                <circle
-                  cx={Math.min(290, 10 + (heroRange / 60) * 280)}
-                  cy="110"
-                  r="4"
-                  fill="#10b981"
-                />
-              </svg>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] text-slate-400">
-                <span>Adjust Angle: {heroAngle}°</span>
-                <span className="text-emerald-400 font-mono">Range: {heroRange.toFixed(1)}m</span>
-              </div>
-              <input
-                type="range"
-                min="15"
-                max="75"
-                step="1"
-                value={heroAngle}
-                onChange={(e) => setHeroAngle(parseInt(e.target.value))}
-                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-              />
             </div>
           </div>
         </div>
