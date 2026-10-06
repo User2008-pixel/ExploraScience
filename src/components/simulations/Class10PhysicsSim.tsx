@@ -116,10 +116,13 @@ export const Class10PhysicsSim: React.FC<Class10PhysicsSimProps> = ({
   // MODE 1: SPHERICAL MIRRORS OPTICAL BENCH
   // ----------------------------------------------------------------------
   const [mirrorType, setMirrorType] = useState<'concave' | 'convex'>(() => {
-    if (conceptId.includes('convex-mirror')) return 'convex';
+    if (conceptId.toLowerCase().includes('convex')) return 'convex';
     return 'concave';
   });
-  const [mirrorFocalLength, setMirrorFocalLength] = useState<number>(variables.focalLengthMm ?? -20);
+  const [mirrorFocalLength, setMirrorFocalLength] = useState<number>(() => {
+    if (conceptId.toLowerCase().includes('convex')) return Math.abs(variables.focalLengthMm ?? 20);
+    return -Math.abs(variables.focalLengthMm ?? 20);
+  });
   const [mirrorObjectU, setMirrorObjectU] = useState<number>(variables.objectDistanceU ?? -40);
   const [mirrorObjectHeight, setMirrorObjectHeight] = useState<number>(variables.objectHeightHo ?? 4);
 
@@ -373,16 +376,18 @@ export const Class10PhysicsSim: React.FC<Class10PhysicsSimProps> = ({
 
                 {/* Mirror Curved Surface at poleX */}
                 {mirrorType === 'concave' ? (
-                  <path d={`M ${poleX},20 Q ${poleX - 15},${axisY} ${poleX},180`} fill="none" stroke="#38bdf8" strokeWidth="4" />
+                  /* Concave: Caves inwards away from light (opening towards left, pole/hollow to right) */
+                  <path d={`M ${poleX - 10},20 Q ${poleX + 16},${axisY} ${poleX - 10},180`} fill="none" stroke="#38bdf8" strokeWidth="4" />
                 ) : (
-                  <path d={`M ${poleX},20 Q ${poleX + 15},${axisY} ${poleX},180`} fill="none" stroke="#38bdf8" strokeWidth="4" />
+                  /* Convex: Bulges outwards towards the object on left (crest to left) */
+                  <path d={`M ${poleX + 10},20 Q ${poleX - 16},${axisY} ${poleX + 10},180`} fill="none" stroke="#38bdf8" strokeWidth="4" />
                 )}
 
-                {/* Silvered backing notches */}
+                {/* Silvered backing notches (always on the non-reflecting right side) */}
                 {mirrorType === 'concave' ? (
-                  <path d={`M ${poleX + 2},25 L ${poleX + 7},20 M ${poleX + 2},60 L ${poleX + 7},55 M ${poleX + 2},100 L ${poleX + 7},95 M ${poleX + 2},140 L ${poleX + 7},135 M ${poleX + 2},175 L ${poleX + 7},170`} stroke="#64748b" strokeWidth="1.5" />
+                  <path d={`M ${poleX - 8},25 L ${poleX - 3},20 M ${poleX + 1},60 L ${poleX + 6},55 M ${poleX + 5},100 L ${poleX + 10},95 M ${poleX + 1},140 L ${poleX + 6},135 M ${poleX - 8},175 L ${poleX - 3},170`} stroke="#64748b" strokeWidth="1.5" />
                 ) : (
-                  <path d={`M ${poleX - 2},25 L ${poleX - 7},20 M ${poleX - 2},60 L ${poleX - 7},55 M ${poleX - 2},100 L ${poleX - 7},95 M ${poleX - 2},140 L ${poleX - 7},135 M ${poleX - 2},175 L ${poleX - 7},170`} stroke="#64748b" strokeWidth="1.5" />
+                  <path d={`M ${poleX + 12},25 L ${poleX + 17},20 M ${poleX + 3},60 L ${poleX + 8},55 M ${poleX - 1},100 L ${poleX + 4},95 M ${poleX + 3},140 L ${poleX + 8},135 M ${poleX + 12},175 L ${poleX + 17},170`} stroke="#64748b" strokeWidth="1.5" />
                 )}
 
                 {/* Pole P */}
@@ -419,7 +424,7 @@ export const Class10PhysicsSim: React.FC<Class10PhysicsSimProps> = ({
                 </text>
 
                 {/* LIVE DYNAMIC IMAGE ARROW */}
-                {isFinite(imgX) && isFinite(imgH) && Math.abs(calculatedImageV) < 120 && (
+                {isFinite(imgX) && isFinite(imgH) && Math.abs(calculatedImageV) < 140 && (
                   <g>
                     <line
                       x1={imgX}
@@ -446,46 +451,80 @@ export const Class10PhysicsSim: React.FC<Class10PhysicsSimProps> = ({
                       fontFamily="monospace"
                       fontWeight="bold"
                     >
-                      Image (h')
+                      Image (h&apos;)
                     </text>
                   </g>
                 )}
 
-                {/* LIVE RAY 1: Parallel to principal axis -> Reflects through Focus F */}
+                {/* LIVE RAY 1: Parallel to principal axis -> Reflects */}
                 <line x1={objX} y1={axisY - objH} x2={poleX} y2={axisY - objH} stroke="#e2e8f0" strokeWidth="1.5" opacity="0.8" />
                 {mirrorType === 'concave' ? (
-                  <>
-                    <line x1={poleX} y1={axisY - objH} x2={imgX} y2={axisY - imgH} stroke="#38bdf8" strokeWidth="1.5" />
-                    {/* Animated photon pulse moving on reflected ray */}
-                    {(() => {
-                      const p1 = getPulsePos(objX, axisY - objH, poleX, axisY - objH, 0);
-                      const p2 = getPulsePos(poleX, axisY - objH, imgX, axisY - imgH, 0.5);
-                      return (
-                        <>
-                          <circle cx={p1.x} cy={p1.y} r="3" fill="#38bdf8" />
-                          <circle cx={p2.x} cy={p2.y} r="3" fill="#f59e0b" />
-                        </>
-                      );
-                    })()}
-                  </>
+                  calculatedImageV < 0 ? (
+                    // Concave Real Image: reflected ray passes through real Focus F on left and image tip
+                    <>
+                      <line x1={poleX} y1={axisY - objH} x2={Math.min(340, Math.max(10, imgX - 30))} y2={axisY - imgH - ((imgH - objH) / (imgX - poleX)) * 30} stroke="#38bdf8" strokeWidth="1.5" />
+                      {/* Animated photon pulse moving on reflected ray */}
+                      {(() => {
+                        const p1 = getPulsePos(objX, axisY - objH, poleX, axisY - objH, 0);
+                        const p2 = getPulsePos(poleX, axisY - objH, imgX, axisY - imgH, 0.5);
+                        return (
+                          <>
+                            <circle cx={p1.x} cy={p1.y} r="3" fill="#38bdf8" />
+                            <circle cx={p2.x} cy={p2.y} r="3" fill="#f59e0b" />
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    // Concave Virtual Image (object between P and F): reflected ray diverges forward, dashed extension meets behind mirror
+                    <>
+                      {/* Divergent reflected ray into real space */}
+                      <line x1={poleX} y1={axisY - objH} x2={20} y2={axisY - objH + ((axisY - (axisY - objH)) / (poleX - focusX)) * (poleX - 20)} stroke="#38bdf8" strokeWidth="1.5" />
+                      {/* Virtual extension behind mirror straight to virtual image tip */}
+                      <line x1={poleX} y1={axisY - objH} x2={imgX} y2={axisY - imgH} stroke="#38bdf8" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.8" />
+                    </>
+                  )
                 ) : (
+                  // Convex Mirror: reflects diverging away into space; virtual extension reaches virtual focus F and image tip
                   <>
-                    {/* Diverges away as if from virtual focus */}
-                    <line x1={poleX} y1={axisY - objH} x2={30} y2={axisY - objH - 50} stroke="#38bdf8" strokeWidth="1.5" />
-                    <line x1={poleX} y1={axisY - objH} x2={focusX} y2={axisY} stroke="#38bdf8" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+                    {/* Reflected ray diverging upwards and left */}
+                    {(() => {
+                      const divSlope = objH / (focusX - poleX);
+                      const divY = Math.max(10, axisY - objH - divSlope * (poleX - 20));
+                      return <line x1={poleX} y1={axisY - objH} x2={20} y2={divY} stroke="#38bdf8" strokeWidth="1.5" />;
+                    })()}
+                    {/* Virtual extension backwards through virtual focus F and virtual image */}
+                    <line x1={poleX} y1={axisY - objH} x2={focusX} y2={axisY} stroke="#38bdf8" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.8" />
                   </>
                 )}
 
-                {/* LIVE RAY 2: Oblique Ray incident on Pole P -> Reflects at equal angle */}
+                {/* LIVE RAY 2: Ray incident on Pole P -> Reflects at equal angle */}
                 <line x1={objX} y1={axisY - objH} x2={poleX} y2={axisY} stroke="#cbd5e1" strokeWidth="1.2" opacity="0.7" />
-                <line
-                  x1={poleX}
-                  y1={axisY}
-                  x2={mirrorType === 'concave' ? imgX : 20}
-                  y2={mirrorType === 'concave' ? axisY - imgH : axisY + (objH * (poleX - 20)) / (poleX - objX)}
-                  stroke="#38bdf8"
-                  strokeWidth="1.2"
-                />
+                {mirrorType === 'concave' ? (
+                  calculatedImageV < 0 ? (
+                    // Real image reflected ray passes through image
+                    <line
+                      x1={poleX}
+                      y1={axisY}
+                      x2={Math.min(340, Math.max(10, imgX - 30))}
+                      y2={axisY - imgH - (imgH / (poleX - imgX)) * 30}
+                      stroke="#38bdf8"
+                      strokeWidth="1.2"
+                    />
+                  ) : (
+                    // Virtual image: reflected ray into real space, virtual extension behind mirror
+                    <>
+                      <line x1={poleX} y1={axisY} x2={20} y2={axisY + (objH * (poleX - 20)) / (poleX - objX)} stroke="#38bdf8" strokeWidth="1.2" />
+                      <line x1={poleX} y1={axisY} x2={imgX} y2={axisY - imgH} stroke="#38bdf8" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.8" />
+                    </>
+                  )
+                ) : (
+                  // Convex mirror: reflected ray into real space, virtual extension to virtual image
+                  <>
+                    <line x1={poleX} y1={axisY} x2={20} y2={axisY + (objH * (poleX - 20)) / (poleX - objX)} stroke="#38bdf8" strokeWidth="1.2" />
+                    <line x1={poleX} y1={axisY} x2={imgX} y2={axisY - imgH} stroke="#38bdf8" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.8" />
+                  </>
+                )}
               </svg>
 
               <div className="flex flex-wrap items-center justify-between w-full text-xs font-mono text-slate-300 mt-2 px-3 py-2 bg-slate-950/70 rounded-xl border border-slate-800/80">

@@ -2829,7 +2829,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: '\\vec{F}_{AB} = -\\vec{F}_{BA}, \\quad m_1 \\vec{a}_1 = -m_2 \\vec{a}_2 \\implies v_{\\text{recoil}} = -\\left(\\frac{m_{\\text{bullet}}}{m_{\\text{gun}}}\\right) v_{\\text{bullet}}',
     formulaExplanation:
       'Because mass of gun is vastly larger than bullet mass, gun recoil acceleration is much smaller than bullet forward acceleration.',
-    simulationType: 'newtons-laws',
+    simulationType: 'action-reaction',
     variables: [
       {
         id: 'bulletMassG',
@@ -2923,7 +2923,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: 'm_1 u_1 + m_2 u_2 = m_1 v_1 + m_2 v_2, \\quad \\Delta p_{\\text{system}} = 0',
     formulaExplanation:
       'Where m₁, m₂ are masses, u₁, u₂ are initial velocities, and v₁, v₂ are final velocities after collision.',
-    simulationType: 'newtons-laws',
+    simulationType: 'conservation-of-momentum',
     variables: [
       {
         id: 'cartMass1',
@@ -3113,7 +3113,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: 'g = \\frac{G M}{R^2} \\approx 9.8\\text{ m/s}^2, \\quad W = m g, \\quad W_{\\text{moon}} = \\frac{1}{6} W_{\\text{earth}}',
     formulaExplanation:
       'Because Earth is an oblate spheroid with larger equatorial radius than polar radius, g is slightly greater at the poles (9.83 m/s²) than at the equator (9.78 m/s²).',
-    simulationType: 'projectile-motion',
+    simulationType: 'gravitation-free-fall',
     variables: [
       {
         id: 'massKg',
@@ -4507,7 +4507,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: '\\vec{J} = \\vec{F}_{\\text{avg}} \\Delta t = \\Delta \\vec{p} = m(\\vec{v} - \\vec{u}), \\quad \\vec{F}_{\\text{avg}} = \\frac{m(v - u)}{\\Delta t}',
     formulaExplanation:
       'For a fixed change in momentum Δp, increasing the time interval Δt drastically reduces the stopping force F_avg experienced by the athlete palms.',
-    simulationType: 'newtons-laws',
+    simulationType: 'conservation-of-momentum',
     variables: [
       {
         id: 'ballMassKg',
@@ -4597,7 +4597,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: 'm_{\\text{bullet}} v_{\\text{bullet}} + M_{\\text{gun}} V_{\\text{recoil}} = 0 \\implies V_{\\text{recoil}} = -\\frac{m_{\\text{bullet}}}{M_{\\text{gun}}} v_{\\text{bullet}}',
     formulaExplanation:
       'Initial total momentum is zero. After firing, the sum of bullet and gun momenta remains zero, directing recoil opposite to the bullet trajectory.',
-    simulationType: 'newtons-laws',
+    simulationType: 'action-reaction',
     variables: [
       {
         id: 'bulletMassG',
@@ -4687,7 +4687,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: 'v = u - gt, \\quad h = ut - \\frac{1}{2}gt^2, \\quad v^2 = u^2 - 2gh, \\quad h_{\\text{max}} = \\frac{u^2}{2g}',
     formulaExplanation:
       'By sign convention, upward vectors are positive and downward vectors are negative. Gravity always points downward, decelerating upward motion and accelerating downward return.',
-    simulationType: 'projectile-motion',
+    simulationType: 'gravitation-free-fall',
     variables: [
       {
         id: 'launchSpeedUpMs',
@@ -4766,7 +4766,7 @@ export const CONCEPTS_DATA: ConceptItem[] = [
     formulaLaTeX: 'g = \\frac{G M}{R^2}, \\quad W = mg, \\quad \\frac{W_{\\text{moon}}}{W_{\\text{earth}}} = \\frac{M_m}{M_e} \\left(\\frac{R_e}{R_m}\\right)^2 \\approx \\frac{1}{6}',
     formulaExplanation:
       'The Moon smaller mass weakens gravity by 100x, but its smaller radius strengthens gravity by (3.7)² ≈ 16x. The combined ratio yields 16/100 ≈ 1/6.',
-    simulationType: 'gravitation-orbit',
+    simulationType: 'gravitation-free-fall',
     variables: [
       {
         id: 'bodyMassKg',

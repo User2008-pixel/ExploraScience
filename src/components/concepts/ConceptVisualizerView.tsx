@@ -25,6 +25,11 @@ import { ThermodynamicsSim } from '../simulations/ThermodynamicsSim';
 import { AtomicStructureSim } from '../simulations/AtomicStructureSim';
 import { NervousSystemSim } from '../simulations/NervousSystemSim';
 import { CellOsmosisSim } from '../simulations/CellOsmosisSim';
+import { SphericalMirrorsSim } from '../simulations/SphericalMirrorsSim';
+import { GravitationFreeFallSim } from '../simulations/GravitationFreeFallSim';
+import { FrictionSim } from '../simulations/FrictionSim';
+import { MomentumConservationSim } from '../simulations/MomentumConservationSim';
+import { ActionReactionSim } from '../simulations/ActionReactionSim';
 import { Class9ChemistrySim } from '../simulations/Class9ChemistrySim';
 import { Class9BiologySim } from '../simulations/Class9BiologySim';
 import { Class10PhysicsSim } from '../simulations/Class10PhysicsSim';
@@ -62,6 +67,7 @@ interface ConceptVisualizerViewProps {
   onMasterConcept?: (conceptId: string) => void;
   onOpenDetectiveCase?: (caseId: string) => void;
   onOpenPractical?: (practicalId: string) => void;
+  onOpenAITutor?: (initialQuestion?: string) => void;
 }
 
 type StageTab = 'understand' | 'visualise' | 'manipulate' | 'investigate' | 'apply' | 'practice';
@@ -75,6 +81,7 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
   onMasterConcept = () => {},
   onOpenDetectiveCase,
   onOpenPractical,
+  onOpenAITutor,
 }) => {
   const [activeTab, setActiveTab] = useState<StageTab>('visualise');
   const [hasAwardedCredits, setHasAwardedCredits] = useState(false);
@@ -96,6 +103,57 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
   // Render the appropriate simulation based on concept.simulationType
   const renderSimulation = () => {
     switch (concept.simulationType) {
+      case 'spherical-mirrors':
+      case 'concave-mirror':
+      case 'convex-mirror':
+        return (
+          <SphericalMirrorsSim
+            initialType={concept.id.toLowerCase().includes('convex') ? 'convex' : 'concave'}
+            focalLengthCm={varValues.focalLengthMm ? Math.abs(varValues.focalLengthMm) : 20}
+            objectDistanceCm={varValues.objectDistanceU ?? -35}
+            objectHeightCm={varValues.objectHeightHo ?? 4}
+          />
+        );
+      case 'gravitation-free-fall':
+      case 'free-fall':
+        return (
+          <GravitationFreeFallSim
+            initialHeightM={varValues.initialHeight ?? 45}
+            gravity={varValues.gravitationalFieldG ?? varValues.surfaceGravity ?? 9.8}
+            object1MassKg={varValues.massKg ?? 10}
+            object2MassKg={0.05}
+          />
+        );
+      case 'friction-dynamics':
+      case 'friction':
+        return (
+          <FrictionSim
+            initialPullForce={varValues.appliedForce ?? 25}
+            initialMass={varValues.mass ?? varValues.bodyMassKg ?? 5}
+            initialMuS={varValues.frictionCoefficientMu ?? 0.5}
+            initialMuK={(varValues.frictionCoefficientMu ?? 0.5) * 0.7}
+          />
+        );
+      case 'conservation-of-momentum':
+      case 'momentum':
+        return (
+          <MomentumConservationSim
+            initialMass1={varValues.cartMass1 ?? 2}
+            initialVel1={varValues.cartVel1 ?? 6}
+            initialMass2={varValues.cartMass2 ?? 2}
+            initialVel2={0}
+            elasticity={1.0}
+          />
+        );
+      case 'action-reaction':
+      case 'newton-third-law':
+        return (
+          <ActionReactionSim
+            initialMassA={varValues.gunMassKg ?? 60}
+            initialMassB={varValues.bulletMassG ? varValues.bulletMassG / 1000 : 30}
+            initialForce={varValues.appliedForceN ?? 120}
+          />
+        );
       case 'projectile-motion':
         return (
           <ProjectileMotionSim
@@ -383,6 +441,96 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
           />
         );
       default:
+        // Priority checks for topic-specific dedicated simulators
+        if (concept.id.toLowerCase().includes('mirror') || concept.title.toLowerCase().includes('mirror')) {
+          return (
+            <SphericalMirrorsSim
+              initialType={concept.id.toLowerCase().includes('convex') ? 'convex' : 'concave'}
+              focalLengthCm={varValues.focalLengthMm ? Math.abs(varValues.focalLengthMm) : 20}
+              objectDistanceCm={varValues.objectDistanceU ?? -35}
+              objectHeightCm={varValues.objectHeightHo ?? 4}
+            />
+          );
+        }
+        if (
+          concept.id.includes('free-fall') ||
+          concept.id.includes('motion-under-gravity') ||
+          concept.id.includes('weight-moon') ||
+          concept.title.toLowerCase().includes('free fall')
+        ) {
+          return (
+            <GravitationFreeFallSim
+              initialHeightM={varValues.initialHeight ?? 45}
+              gravity={varValues.gravitationalFieldG ?? varValues.surfaceGravity ?? 9.8}
+              object1MassKg={varValues.massKg ?? 10}
+              object2MassKg={0.05}
+            />
+          );
+        }
+        if (concept.id.toLowerCase().includes('friction') || concept.title.toLowerCase().includes('friction')) {
+          return (
+            <FrictionSim
+              initialPullForce={varValues.appliedForce ?? 25}
+              initialMass={varValues.mass ?? varValues.bodyMassKg ?? 5}
+              initialMuS={varValues.frictionCoefficientMu ?? 0.5}
+              initialMuK={(varValues.frictionCoefficientMu ?? 0.5) * 0.7}
+            />
+          );
+        }
+        if (concept.gradeLevel === 'Class 9' && concept.subject === 'physics') {
+          if (
+            concept.id.includes('conservation-momentum') ||
+            concept.id.includes('collision') ||
+            concept.title.toLowerCase().includes('conservation of')
+          ) {
+            return (
+              <MomentumConservationSim
+                initialMass1={varValues.cartMass1 ?? 2}
+                initialVel1={varValues.cartVel1 ?? 6}
+                initialMass2={varValues.cartMass2 ?? 2}
+                initialVel2={0}
+              />
+            );
+          }
+          if (
+            concept.id.includes('third-law') ||
+            concept.id.includes('action-reaction') ||
+            concept.id.includes('recoil') ||
+            concept.title.toLowerCase().includes('third law') ||
+            concept.title.toLowerCase().includes('recoil')
+          ) {
+            return (
+              <ActionReactionSim
+                initialMassA={varValues.gunMassKg ?? 60}
+                initialMassB={varValues.bulletMassG ? varValues.bulletMassG / 1000 : 30}
+                initialForce={varValues.appliedForceN ?? 120}
+              />
+            );
+          }
+          if (concept.id.includes('momentum') || concept.id.includes('second-law') || concept.id.includes('first-law') || concept.id.includes('force')) {
+            return (
+              <NewtonSecondLawSim
+                appliedForce={varValues.appliedForceF ?? varValues.externalForceN ?? 40}
+                mass={varValues.massM ?? varValues.bodyMassKg ?? 8}
+              />
+            );
+          }
+          if (concept.id.includes('gravitation')) {
+            return (
+              <GravitationFreeFallSim
+                initialHeightM={45}
+                gravity={9.8}
+              />
+            );
+          }
+          return (
+            <ProjectileMotionSim
+              velocity={varValues.initialSpeedU ?? varValues.initialVel ?? 20}
+              angle={45}
+            />
+          );
+        }
+
         // Automatic routing for all grades and subjects
         if (concept.gradeLevel === 'Class 9' && concept.subject === 'chemistry') {
           return (
@@ -516,6 +664,23 @@ export const ConceptVisualizerView: React.FC<ConceptVisualizerViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenAITutor && (
+            <button
+              onClick={() => {
+                const varSummary = Object.entries(varValues)
+                  .map(([k, v]) => `${k} = ${v}`)
+                  .join(', ');
+                onOpenAITutor(
+                  `Deep Research & Site Insight for "${concept.title}" (${concept.gradeLevel} ${concept.subject}):\nExplain the underlying physics/chemistry principle in-depth, analyze the current simulation parameters (${varSummary || 'default'}), and derive the governing formula ${concept.formulaLaTeX}. How does the site's interactive model demonstrate this?`
+                );
+              }}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-500/20 via-cyan-500/20 to-emerald-500/20 hover:from-purple-500/30 hover:to-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              title="Open Gemini AI with active simulation parameters and site research"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Gemini Deep Research</span>
+            </button>
+          )}
           <button
             onClick={onBack}
             className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition"

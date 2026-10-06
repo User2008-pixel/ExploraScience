@@ -622,6 +622,10 @@ export default function App() {
                   setActiveTab('detective');
                 }}
                 onOpenPractical={handleOpenPractical}
+                onOpenAITutor={(question) => {
+                  if (question) setTutorInitialQuestion(question);
+                  setIsAITutorOpen(true);
+                }}
               />
             ) : (
               <ConceptLibraryView
@@ -721,10 +725,14 @@ export default function App() {
       {/* Socratic AI Tutor Modal Drawer */}
       <AITutorPanel
         isOpen={isAITutorOpen}
-        onClose={() => setIsAITutorOpen(false)}
+        onClose={() => {
+          setIsAITutorOpen(false);
+          setTutorInitialQuestion('');
+        }}
         activeContext={
           selectedCase ? selectedCase.title : selectedConcept ? selectedConcept.title : 'General Science'
         }
+        initialQuestion={tutorInitialQuestion}
       />
 
       {/* Authentication & Profile Modal */}

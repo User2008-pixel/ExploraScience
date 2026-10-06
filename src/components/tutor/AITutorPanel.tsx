@@ -51,7 +51,7 @@ export const AITutorPanel: React.FC<AITutorPanelProps> = ({
 
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [mode, setMode] = useState<'solution' | 'conceptual' | 'derivation' | 'curious'>('solution');
+  const [mode, setMode] = useState<'solution' | 'conceptual' | 'derivation' | 'curious' | 'site-research'>('solution');
   const [enableSearch, setEnableSearch] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -342,14 +342,14 @@ Check our **Unit Converter** and **Function Grapher** tabs for interactive mathe
 
   // Context-specific quick chips
   const quickPrompts = [
+    `🔬 Research Momentum: Why does equal mass collision transfer 100% velocity?`,
+    `⚖️ Research Newton's 3rd Law: Action & reaction on two bodies`,
+    `🔍 Research Mirrors: Concave cave vs Convex outward bulge ray tracing`,
+    `🍎 Research Free Fall: Galileo's mass independence in vacuum vs air drag`,
+    `📐 Research Friction: Angle of repose and static vs kinetic friction`,
     `💥 What if we add Cesium in water?`,
     `🌍 What if Earth stopped spinning for 5s?`,
-    `❄️ What if you touch liquid nitrogen?`,
-    `☀️ What if the Sun suddenly vanished?`,
-    `🍇 Why do grapes make plasma in microwaves?`,
-    `🚀 What happens in space vacuum without a suit?`,
     `Solve the step-by-step mathematical solution for ${activeContext}`,
-    `Derive the main governing formula with unit analysis`,
   ];
 
   const insertSymbol = (sym: string) => {
@@ -419,6 +419,18 @@ Check our **Unit Converter** and **Function Grapher** tabs for interactive mathe
         <div className="bg-[#0D1527] px-4 py-2 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1.5">
             <button
+              onClick={() => setMode('site-research')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition ${
+                mode === 'site-research'
+                  ? 'bg-purple-500 text-white font-bold shadow-md shadow-purple-500/20'
+                  : 'bg-slate-900 text-purple-300 hover:text-purple-200'
+              }`}
+              title="Research curriculum concepts, practical experiments and simulations on ScienceLab"
+            >
+              <Atom className="w-3 h-3 text-purple-300" />
+              <span>Site Research</span>
+            </button>
+            <button
               onClick={() => setMode('solution')}
               className={`px-2.5 py-1 rounded-lg font-medium transition ${
                 mode === 'solution'
@@ -426,7 +438,7 @@ Check our **Unit Converter** and **Function Grapher** tabs for interactive mathe
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200'
               }`}
             >
-              Step-by-Step Solution
+              Solution
             </button>
             <button
               onClick={() => setMode('conceptual')}
@@ -436,7 +448,7 @@ Check our **Unit Converter** and **Function Grapher** tabs for interactive mathe
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200'
               }`}
             >
-              Concept Breakdown
+              Concept
             </button>
             <button
               onClick={() => setMode('derivation')}
@@ -446,7 +458,7 @@ Check our **Unit Converter** and **Function Grapher** tabs for interactive mathe
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200'
               }`}
             >
-              Formula Derivation
+              Derivation
             </button>
             <button
               onClick={() => setMode('curious')}
@@ -457,7 +469,7 @@ Check our **Unit Converter** and **Function Grapher** tabs for interactive mathe
               }`}
             >
               <Sparkles className="w-3 h-3 text-amber-400" />
-              <span>Curious 'What If?'</span>
+              <span>What If?</span>
             </button>
           </div>
 

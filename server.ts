@@ -7,6 +7,9 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import { CONCEPTS_DATA } from './src/data/conceptsData';
+import { PRACTICAL_LABS_DATA } from './src/data/practicalLabsData';
+import { DETECTIVE_CASES } from './src/data/detectiveCasesData';
 
 dotenv.config();
 
@@ -17,6 +20,247 @@ const PORT = process.env.PORT || 3000;
 async function startServer() {
   const app = express();
   app.use(express.json());
+
+  // Unrestricted CORS middleware for external AIs (ChatGPT, Claude, custom GPTs, scrapers)
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+    next();
+  });
+
+  // --- Public AI & External GPT Access Endpoints ---
+
+  // 1. OpenAPI 3.0 Spec for ChatGPT Custom GPT Actions & External AI Agents
+  app.get('/api/openapi.json', (req, res) => {
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers.host || 'ais-dev-ocoiilgrpov6voamsc33zk-677327626129.asia-southeast1.run.app';
+    const baseUrl = `${protocol}://${host}`;
+
+    res.json({
+      openapi: '3.0.1',
+      info: {
+        title: 'ScienceLab Explorer AI & Curriculum API',
+        description: 'Unrestricted public API for external AIs, ChatGPT Custom GPTs, and web agents to query NCERT science curriculum, simulations, and Dr. Nova AI mentor.',
+        version: '1.0.0',
+      },
+      servers: [{ url: baseUrl }],
+      paths: {
+        '/api/site/manifest': {
+          get: {
+            summary: 'Get complete site manifest, concepts, practical labs, and interactive simulation models',
+            responses: { '200': { description: 'Successful site manifest' } },
+          },
+        },
+        '/api/site/search': {
+          get: {
+            summary: 'Search science concepts and practical labs',
+            parameters: [
+              { name: 'q', in: 'query', required: true, schema: { type: 'string' } },
+            ],
+            responses: { '200': { description: 'Search results' } },
+          },
+        },
+        '/api/ai/query': {
+          post: {
+            summary: 'Query Dr. Nova AI mentor with any physics, chemistry, biology, or math question',
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      prompt: { type: 'string' },
+                      mode: { type: 'string', enum: ['solution', 'conceptual', 'derivation', 'curious', 'site-research'] },
+                    },
+                    required: ['prompt'],
+                  },
+                },
+              },
+            },
+            responses: { '200': { description: 'AI mentor response with step-by-step math/science derivation and sources' } },
+          },
+        },
+      },
+    });
+  });
+
+  // 2. Complete Site Manifest for External AIs
+  app.get('/api/site/manifest', (req, res) => {
+    try {
+      const conceptsSummary = CONCEPTS_DATA.map((c) => ({
+        id: c.id,
+        title: c.title,
+        subject: c.subject,
+        gradeLevel: c.gradeLevel,
+        tagline: c.tagline,
+        simulationType: c.simulationType,
+        formula: c.formulaLaTeX,
+      }));
+
+      const practicalsSummary = PRACTICAL_LABS_DATA.map((p) => ({
+        id: p.id,
+        title: p.title,
+        subject: p.subject,
+        gradeLevel: p.gradeLevel,
+        objective: p.aim,
+        apparatus: p.apparatusRequired,
+      }));
+
+      const casesSummary = DETECTIVE_CASES.map((d) => ({
+        id: d.id,
+        title: d.title,
+        difficulty: d.difficulty,
+        summary: d.premise,
+        mysteryQuestion: d.mysteryQuestion,
+      }));
+
+      res.json({
+        siteName: 'ScienceLab Explorer',
+        description: 'Interactive Class 9-12 NCERT Science & Mathematics Virtual Laboratory, Simulations, and Dr. Nova AI Mentor',
+        totalConcepts: CONCEPTS_DATA.length,
+        totalPracticalLabs: PRACTICAL_LABS_DATA.length,
+        totalDetectiveCases: DETECTIVE_CASES.length,
+        interactiveModels: [
+          { type: 'momentum-conservation', name: 'Law of Conservation of Linear Momentum & 2-Ball Elastic/Inelastic Collision Bench' },
+          { type: 'action-reaction', name: "Newton's Third Law Action-Reaction & Recoil Bench" },
+          { type: 'spherical-mirrors', name: 'Concave Cave vs Convex Outward Bulge Ray Optics Bench' },
+          { type: 'gravitation-free-fall', name: 'Vertical Free Fall & Mass Independence Lab' },
+          { type: 'newtons-laws', name: 'Newton 2nd Law & Dynamic a-t Graph Bench' },
+          { type: 'friction-dynamics', name: 'Inclined Plane & Angle of Repose Friction Lab' },
+        ],
+        concepts: conceptsSummary,
+        practicalLabs: practicalsSummary,
+        detectiveCases: casesSummary,
+        accessPolicy: 'Unrestricted public access for external AIs, ChatGPT Custom GPTs, LLM scrapers, and automated agents.',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to generate manifest.' });
+    }
+  });
+
+  // 3. Search Curriculum Endpoint
+  app.get('/api/site/search', (req, res) => {
+    const q = ((req.query.q as string) || '').toLowerCase().trim();
+    if (!q) {
+      return res.json({ results: [] });
+    }
+
+    const matchedConcepts = CONCEPTS_DATA.filter(
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.tagline.toLowerCase().includes(q) ||
+        c.subject.toLowerCase().includes(q) ||
+        c.gradeLevel.toLowerCase().includes(q)
+    ).slice(0, 15);
+
+    const matchedPracticals = PRACTICAL_LABS_DATA.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.aim.toLowerCase().includes(q) ||
+        p.subject.toLowerCase().includes(q)
+    ).slice(0, 10);
+
+    res.json({
+      query: q,
+      totalMatches: matchedConcepts.length + matchedPracticals.length,
+      concepts: matchedConcepts,
+      practicals: matchedPracticals,
+    });
+  });
+
+  // 4. Unrestricted External AI Query Endpoint
+  app.post('/api/ai/query', async (req, res) => {
+    try {
+      const { prompt, mode } = req.body;
+      if (!prompt || typeof prompt !== 'string') {
+        return res.status(400).json({ error: 'Prompt string is required.' });
+      }
+
+      const systemInstruction = `You are Dr. Nova, lead STEM AI mentor of ScienceLab Explorer. You provide rigorous, unrestricted scientific and mathematical answers for Class 9-12 NCERT Physics, Chemistry, Biology, and Mathematics. Provide step-by-step LaTeX derivations, numerical values, and simulation model insights.`;
+
+      let reply = '';
+      let sources: any[] = [];
+      let modelUsed = 'gemini-3.8-flash';
+
+      if (ai) {
+        const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+        for (const candidate of candidateModels) {
+          if (reply) break;
+          modelUsed = candidate;
+          try {
+            const resp = await ai.models.generateContent({
+              model: candidate,
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              config: {
+                systemInstruction,
+                tools: [{ googleSearch: {} }],
+              },
+            });
+            if (resp && resp.text) {
+              reply = resp.text;
+              const cand = resp.candidates?.[0] as any;
+              if (Array.isArray(cand?.groundingMetadata?.groundingChunks)) {
+                sources = cand.groundingMetadata.groundingChunks
+                  .filter((c: any) => c.web?.uri && c.web?.title)
+                  .map((c: any) => ({ title: c.web.title, url: c.web.uri }));
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (!reply) {
+        reply = `### Answer by Dr. Nova (ScienceLab AI Engine)\n\n**Query:** ${prompt}\n\n**Resolution:** Solved via ScienceLab STEM Engine using fundamental laws ($F = ma, \\Delta P = 0, \\frac{1}{v} + \\frac{1}{u} = \\frac{1}{f}$).`;
+      }
+
+      res.json({
+        query: prompt,
+        reply,
+        sources,
+        modelUsed,
+        siteInfo: 'Fully accessible via public API endpoints (/api/site/manifest, /api/site/search, /api/openapi.json).',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'AI query failed.' });
+    }
+  });
+
+  // 5. robots.txt for AI web crawlers & scrapers
+  app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+Sitemap: /sitemap.xml
+`);
+  });
+
+  // 6. sitemap.xml
+  app.get('/sitemap.xml', (req, res) => {
+    res.type('application/xml');
+    const host = req.headers.host || 'ais-dev-ocoiilgrpov6voamsc33zk-677327626129.asia-southeast1.run.app';
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    const baseUrl = `${proto}://${host}`;
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>${baseUrl}/api/site/manifest</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>${baseUrl}/api/openapi.json</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+`;
+
+    CONCEPTS_DATA.forEach((c) => {
+      xml += `  <url><loc>${baseUrl}/?concept=${c.id}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>\n`;
+    });
+
+    xml += `</urlset>`;
+    res.send(xml);
+  });
 
   // Initialize GoogleGenAI SDK on the server with User-Agent
   const apiKey = process.env.GEMINI_API_KEY;
@@ -72,7 +316,18 @@ CRITICAL DIRECTIVES:
    - Compare with laboratory safety and real-world experimental precedents.
 9. LIVE BROWSER & WEB ACCESS VIA GOOGLE SEARCH:
    You have unrestricted, full live web search access through Google Search grounding. Freely access the browser and search for any answers, real-world scientific data, latest empirical research, physical constants, historical discoveries, and citations to boost curious minds. Always back up your explanations with verified real-world facts.
-10. Current laboratory context: "${activeContext || 'General STEM & Mathematics'}".
+10. FULL SITE CURRICULUM ACCESS & INTERACTIVE SIMULATION RESEARCH:
+   You have complete, exhaustive knowledge and direct research access to every single module, concept, practical, and interactive simulation on the ScienceLab Explorer website:
+   - **Conservation of Linear Momentum Model**: Interactive 2-ball collision bench and 5-ball Newton's Cradle. When Ball 1 of mass m1 strikes stationary Ball 2 of equal mass (m1 = m2, u2 = 0) in an elastic collision, 100% of the velocity is transferred: Ball 1 stops dead (v1 = 0) and Ball 2 moves forward with v2 = u1. Explains multi-ball impulse cascade, inelastic collisions (stick together v_f = (m1 u1 + m2 u2)/(m1 + m2)), and spring separation recoil.
+   - **Newton's Third Law (Action-Reaction) Model**: Demonstrates that to every action there is an equal and opposite reaction (F_AB = -F_BA) acting on TWO DIFFERENT bodies simultaneously. Features: (1) Skaters pushing off each other on frictionless ice (lighter skater accelerates faster because a = F/m, but forces are strictly equal); (2) Rifle recoil where massive rifle recoils backward with small velocity V_g = -(m_b/M_g)v_b while light bullet flies at 300 m/s; (3) Rocket propulsion in space vacuum where downward exhaust gas action produces upward thrust reaction; (4) Two interconnected spring balances where pulling either balance shows identical Newton readings.
+   - **Spherical Mirrors Model**: Live ray tracing optical bench. Concave mirror has reflecting surface curving inward away from light (f < 0), producing real inverted images from infinity to F and virtual erect magnified image between F and P. Convex mirror has reflecting surface bulging outward towards light (f > 0), always producing virtual, erect, diminished images with wide field of view.
+   - **Gravitation & Free Fall Model**: Objects falling vertically from above (tower/drop tube). Proves Galileo's principle that acceleration due to gravity g is independent of mass (a = GM/R^2). Compares vacuum vs atmospheric air resistance, featuring Apollo 15 hammer & feather and planetary gravity (Earth, Moon, Mars, Jupiter).
+   - **Newton's Second Law (Force & a-t Graph) Model**: Shows how acceleration varies dynamically with time (a = F_net / m) across Constant, Stepped, Ramping, Impulsive, and Harmonic oscillating force profiles.
+   - **Friction Dynamics Model**: Inclined plane with angle of repose theta = arctan(mu_s), transition between static friction f_s <= mu_s N and kinetic friction f_k = mu_k N, with free-body vector breakdown.
+   - **Practical Laboratory Benches**: Vernier Calipers, Screw Gauge, Simple Pendulum, Convex Lens, Sonometer, Resonance Tube, Meter Bridge, Potentiometer, Prism Deviation, P-N Junction Diode, Volumetric Titration, Thiosulfate Kinetics, Salt Analysis, Paper Chromatography, Mitosis Root Tip, Biochemical Food Tests.
+   - **Detective Investigation Cases**: Car stopping mystery, circuit blackout, reaction slowdown, enzyme denaturation, plant osmosis.
+   Whenever a student or educator asks about any topic on the site, you research it completely, reference the site's simulation mechanics, and provide deep scientific insight!
+11. Current laboratory context: "${activeContext || 'General STEM & Mathematics'}".
 Mode requested: "${mode || 'step-by-step solution'}".`;
 
       let isQuotaFallback = false;
@@ -682,6 +937,73 @@ $$\\ln\\left(\\frac{P_2}{P_1}\\right) = -\\frac{\\Delta H_{\\text{vap}}}{R}\\lef
 At this pressure, the boiling point of water drops to **$37^\\circ\\text{C}$ (normal human body temperature)**!
 - Saliva on your tongue, tears on your eyes, and moisture inside lungs will literally boil at body temperature.
 - Blood inside pressurized arteries stays liquid, but subcutaneous fluids vaporize, causing severe bodily swelling. You have ~90 seconds before cardiovascular collapse becomes fatal.`;
+      } else if (lastUserMsg.includes('momentum') || lastUserMsg.includes('collision') || lastUserMsg.includes('cradle') || lastUserMsg.includes('velocity transfer')) {
+        fallbackReply = `### Solution by Dr. Nova: Law of Conservation of Linear Momentum & Elastic Collisions
+
+**1. Direct Answer:**
+In an isolated system with no external unbalanced force ($\\sum \\vec{F}_{\\text{ext}} = 0$), the total vector momentum before collision equals the total vector momentum after collision:
+$$m_1 u_1 + m_2 u_2 = m_1 v_1 + m_2 v_2 \\implies \\Delta \\vec{P}_{\\text{sys}} = 0$$
+
+**2. The 100% Velocity Transfer Phenomenon (User's Billiard Ball / Newton's Cradle Proof):**
+For a 1D perfectly elastic collision ($e = 1$), the post-collision velocities are governed by:
+$$v_1 = \\frac{(m_1 - m_2)u_1 + 2m_2 u_2}{m_1 + m_2}, \\qquad v_2 = \\frac{2m_1 u_1 + (m_2 - m_1)u_2}{m_1 + m_2}$$
+When two colliding balls have **equal mass** ($m_1 = m_2 = m$) and Ball 2 is initially **at rest** ($u_2 = 0$):
+$$v_1 = \\frac{(m - m)u_1 + 0}{2m} = 0$$
+$$v_2 = \\frac{2m u_1 + 0}{2m} = u_1$$
+**Conclusion:** Ball 1 halts to an immediate standstill ($v_1 = 0$), and Ball 2 shoots forward with **the exact identical velocity** ($v_2 = u_1$)! 100% of kinetic energy and momentum are transferred seamlessly.
+
+**3. Newton's Cradle Multi-Ball Impulse Transmission:**
+When a swinging steel ball strikes a line of 4 stationary balls, the contact impulse propagates through the stationary intermediate spheres as an elastic acoustic stress wave in microseconds. Because both momentum ($P = \\sum mv$) and kinetic energy ($K = \\sum \\frac{1}{2}mv^2$) must be conserved, the exact same number of balls (one) pops out on the opposite end with identical speed.
+
+**4. Inelastic Collision (Stick Together):**
+$$v_{\\text{final}} = \\frac{m_1 u_1 + m_2 u_2}{m_1 + m_2}$$
+Kinetic energy is partially dissipated as heat, sound, or deformation, but total momentum remains strictly conserved!`;
+      } else if (lastUserMsg.includes('third law') || (lastUserMsg.includes('action') && lastUserMsg.includes('reaction')) || lastUserMsg.includes('recoil') || lastUserMsg.includes('skater')) {
+        fallbackReply = `### Solution by Dr. Nova: Newton's Third Law (Action-Reaction Pairs)
+
+**1. Direct Answer:**
+To every action, there is an equal and opposite reaction acting on **two different bodies** simultaneously:
+$$\\vec{F}_{AB} = -\\vec{F}_{BA}$$
+Action and reaction forces never cancel each other out because they act on different bodies ($F_{AB}$ acts on body B, while $F_{BA}$ acts on body A).
+
+**2. Unequal Masses Experience Unequal Accelerations ($a = F/m$):**
+Even though $|\\vec{F}_{AB}| = |\\vec{F}_{BA}|$, the resulting accelerations are inversely proportional to mass:
+$$a_A = \\frac{F}{m_A}, \\qquad a_B = \\frac{F}{m_B} \\implies \\frac{a_A}{a_B} = \\frac{m_B}{m_A}$$
+- *Example (Skaters on Ice):* A $60\\,\\text{kg}$ adult and a $30\\,\\text{kg}$ child push each other on frictionless ice with $120\\,\\text{N}$. Both feel $120\\,\\text{N}$ of mutual force. The adult accelerates backward at $2\\,\\text{m/s}^2$, while the child accelerates backward at $4\\,\\text{m/s}^2$ (twice as fast!).
+
+**3. Gun Recoil & Rocket Thrust in Space:**
+- **Rifle Recoil:** Expanding powder gas exerts identical impulse $\\int F\\,dt$ forward on bullet and backward on gun:
+  $$m_{\\text{bullet}} v_{\\text{bullet}} + M_{\\text{gun}} V_{\\text{recoil}} = 0 \\implies V_{\\text{recoil}} = -\\left(\\frac{m_{\\text{bullet}}}{M_{\\text{gun}}}\\right) v_{\\text{bullet}}$$
+- **Rockets in Vacuum:** Rockets do NOT need atmosphere to push against! By expelling high-velocity exhaust fuel particles downward, the reaction force pushes the rocket vehicle forward in empty space ($F_{\\text{thrust}} = \\dot{m} v_e$).
+- **Interconnected Spring Balances:** Hooking Balance A into Balance B and pulling shows both dials registering identical Newton readings ($F_A = F_B$).`;
+      } else if (lastUserMsg.includes('mirror') || lastUserMsg.includes('concave') || lastUserMsg.includes('convex')) {
+        fallbackReply = `### Solution by Dr. Nova: Concave vs Convex Spherical Mirrors
+
+**1. Geometric Distinction:**
+- **Concave Mirror (Converging):** Reflecting surface curves **inward** like a cave away from incoming light. Its center of curvature $C$ and principal focus $F$ lie in front of the reflecting surface (Cartesian convention: focal length $f < 0$).
+- **Convex Mirror (Diverging):** Reflecting surface bulges **outward** towards incoming light. Its center of curvature and focus lie behind the mirror (focal length $f > 0$).
+
+**2. Mirror Formula & Linear Magnification:**
+$$\\frac{1}{v} + \\frac{1}{u} = \\frac{1}{f}, \\qquad m = -\\frac{v}{u} = \\frac{h'}{h}$$
+- **Concave Mirror Images:**
+  - $u > 2f$: Real, inverted, diminished (between F and C).
+  - $u = 2f$: Real, inverted, same size ($m = -1$, at C).
+  - $f < u < 2f$: Real, inverted, magnified (beyond C).
+  - $u < f$ (Object between Pole and Focus): Virtual, erect, **magnified** ($m > +1$, shaving/makeup mirror).
+- **Convex Mirror Images:**
+  - For any real object in front of the mirror, $v$ is always positive (behind the mirror between P and F).
+  - The image is **always Virtual, Erect, and Diminished** ($0 < m < 1$), offering an expansive, panoramic field of view (automobile rear-view mirrors).`;
+      } else if (lastUserMsg.includes('free fall') || lastUserMsg.includes('gravity affects mass') || lastUserMsg.includes('galileo')) {
+        fallbackReply = `### Solution by Dr. Nova: Gravitation, Free Fall & Mass Independence
+
+**1. Direct Answer:**
+According to Newton's Law of Universal Gravitation and Second Law, all bodies fall with the **exact same acceleration** in a vacuum, regardless of their mass:
+$$F = G\\frac{M_{\\text{Earth}} m}{R^2} = m \\cdot a \\implies a = g = \\frac{G M_{\\text{Earth}}}{R^2}$$
+Notice that the mass $m$ of the falling body cancels out identically!
+
+**2. Galileo's Leaning Tower & Apollo 15 Hammer-Feather Experiment:**
+- In atmospheric air, light objects with high surface area (like feathers or paper) experience air drag ($F_{\\text{drag}} = \\frac{1}{2}\\rho C_d A v^2$) comparable to their small weight ($mg$), reaching terminal velocity quickly.
+- In a vacuum (or on the Moon, demonstrated by Astronaut David Scott with a 1.32 kg hammer and 0.03 kg falcon feather), both objects hit the lunar surface at the exact same instant!`;
       } else {
         fallbackReply = `### Solution by Dr. Nova: Step-by-Step Scientific Investigation
 
@@ -716,6 +1038,104 @@ Check the **Unit Converter** to quickly verify measurement dimensions and our **
         modelUsed: 'Dr. Nova STEM Engine (Offline Safe)',
         isQuotaFallback: true,
       });
+    }
+  });
+
+  // --- API Endpoint: Gemini Deep Site Research & Curriculum Insights ---
+  app.post('/api/site/research', async (req, res) => {
+    try {
+      const { topic, conceptId, query, simulationState } = req.body;
+      const targetQuery = query || topic || conceptId || 'ScienceLab Explorer curriculum';
+
+      const systemInstruction = `You are the Lead Scientific Research Engine of ScienceLab Explorer.
+You have direct, full access to the site's entire database of 150+ NCERT concepts (Class 9-12 Physics, Chemistry, Biology), practical laboratory experiments, forensic detective cases, KaTeX formulas, and interactive simulation mechanics.
+Provide deep, rigorous scientific research for the user's inquiry:
+- Explain the physical and mathematical mechanisms thoroughly using KaTeX equations ($...$ and $$...$$).
+- Cite relevant site simulation modules:
+  * MomentumConservationSim: 2-ball elastic collision bench showing 100% velocity transfer when m1 = m2 and u2 = 0, Newton's cradle 5-ball cascade, inelastic coupling, and spring recoil.
+  * ActionReactionSim: Simultaneous equal and opposite forces (F_AB = -F_BA) on two bodies (skaters on ice, rifle recoil, rocket exhaust propulsion, dual spring balances).
+  * SphericalMirrorsSim: Concave inward cave (f < 0) vs convex outward bulge (f > 0) ray tracing optical bench.
+  * GravitationFreeFallSim: Vertical free fall from above, vacuum vs air resistance, Galileo's principle of mass independence.
+  * NewtonSecondLawSim: Force variations with dynamic acceleration-time (a-t) graphs.
+  * FrictionSim: Inclined plane dynamics and angle of repose theta = arctan(mu_s).
+- Provide real-world engineering or astrophysical applications.
+- Highlight common student misconceptions and examiner traps.`;
+
+      let replyText = '';
+      let sources: { title: string; url: string }[] = [];
+      let searchQueries: string[] = [];
+      let modelUsed = 'gemini-3.8-flash';
+
+      if (ai) {
+        const contents = [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `Conduct deep scientific research and provide full site insights on: "${targetQuery}".
+${conceptId ? `Site Concept ID: ${conceptId}` : ''}
+${simulationState ? `Active Simulation Variables: ${JSON.stringify(simulationState)}` : ''}`,
+              },
+            ],
+          },
+        ];
+
+        const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+        for (const model of candidateModels) {
+          if (replyText) break;
+          modelUsed = model;
+          try {
+            const response = await ai.models.generateContent({
+              model,
+              contents,
+              config: {
+                systemInstruction,
+                tools: [{ googleSearch: {} }],
+              },
+            });
+            if (response && response.text) {
+              replyText = response.text;
+              const candidate = response.candidates?.[0] as any;
+              const groundingMetadata = candidate?.groundingMetadata;
+              if (Array.isArray(groundingMetadata?.groundingChunks)) {
+                sources = groundingMetadata.groundingChunks
+                  .filter((c: any) => c.web?.uri && c.web?.title)
+                  .map((c: any) => ({ title: c.web.title, url: c.web.uri }));
+              }
+              if (Array.isArray(groundingMetadata?.webSearchQueries)) {
+                searchQueries = groundingMetadata.webSearchQueries;
+              }
+            }
+          } catch (e) {
+            // try next model
+          }
+        }
+      }
+
+      if (!replyText) {
+        replyText = `### Deep Scientific Research: ${targetQuery}
+
+**1. Governing Physics & Equations:**
+In ScienceLab Explorer, this concept is modeled using rigorous conservation laws and kinetic differential equations:
+$$\\sum \\vec{F} = m \\vec{a}, \\qquad m_1 u_1 + m_2 u_2 = m_1 v_1 + m_2 v_2, \\qquad \\vec{F}_{AB} = -\\vec{F}_{BA}$$
+
+**2. Simulation Mechanics & Physical Insight:**
+Refer to the site's interactive simulation benchmarks for live parameter variations and graphical vector analysis. On the collision bench, when equal masses collide elastically with one at rest, $100\\%$ of the velocity transfers directly ($v_1 = 0, v_2 = u_1$). For action-reaction pairs, equal opposite forces act simultaneously on two bodies, creating unequal accelerations if masses differ ($a = F/m$).
+
+**3. Real-World Applications:**
+Verified across engineering, aerospace, automotive safety, and modern materials science.`;
+      }
+
+      return res.json({
+        topic: targetQuery,
+        research: replyText,
+        sources,
+        searchQueries,
+        modelUsed,
+      });
+    } catch (err: any) {
+      console.error('Error in /api/site/research:', err);
+      return res.status(500).json({ error: 'Failed to generate site research.' });
     }
   });
 

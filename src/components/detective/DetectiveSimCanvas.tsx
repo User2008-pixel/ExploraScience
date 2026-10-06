@@ -263,6 +263,212 @@ export const DetectiveSimCanvas: React.FC<DetectiveSimCanvasProps> = ({
         ctx.textAlign = 'center';
         ctx.fillText(`V_bulb = ${v_terminal.toFixed(2)} V  |  I = ${current.toFixed(2)} A`, w / 2, h - 22);
       }
+    } else if (simulationType === 'reaction-slowdown') {
+      // The Disappearing Cross Reaction (Sodium Thiosulfate + HCl -> Colloidal Sulfur)
+      const tempC = variableValues.reactionTemp ?? 25;
+      const thiosulfateConc = variableValues.thiosulfateConc ?? 0.1;
+      // Arrhenius rate: k ~ A * exp(-Ea / RT)
+      const rateConstant = 0.05 * Math.exp(0.045 * (tempC - 20)) * (thiosulfateConc / 0.1);
+      const turbidity = Math.min(1.0, rateConstant * 1.5);
+      const timeToDisappear = Math.max(5, Math.round(100 / (rateConstant * 10)));
+
+      // Table & paper with black "X" cross mark
+      const flaskX = w * 0.45;
+      const flaskY = h * 0.58;
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(40, flaskY + 30, w - 80, 25);
+      ctx.strokeStyle = '#475569';
+      ctx.strokeRect(40, flaskY + 30, w - 80, 25);
+
+      // White paper square with "X" mark
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(flaskX - 35, flaskY + 18, 70, 16);
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(flaskX - 16, flaskY + 22);
+      ctx.lineTo(flaskX + 16, flaskY + 30);
+      ctx.moveTo(flaskX + 16, flaskY + 22);
+      ctx.lineTo(flaskX - 16, flaskY + 30);
+      ctx.stroke();
+
+      // Conical Flask body
+      ctx.beginPath();
+      ctx.moveTo(flaskX - 14, flaskY - 60); // Neck left
+      ctx.lineTo(flaskX + 14, flaskY - 60); // Neck right
+      ctx.lineTo(flaskX + 14, flaskY - 35);
+      ctx.lineTo(flaskX + 50, flaskY + 20); // Base right
+      ctx.lineTo(flaskX - 50, flaskY + 20); // Base left
+      ctx.lineTo(flaskX - 14, flaskY - 35);
+      ctx.closePath();
+
+      // Liquid fill with yellow colloidal sulfur turbidity
+      const liquidGrad = ctx.createLinearGradient(flaskX, flaskY - 20, flaskX, flaskY + 20);
+      liquidGrad.addColorStop(0, `rgba(253, 224, 71, ${Math.min(0.95, turbidity * 0.9)})`);
+      liquidGrad.addColorStop(1, `rgba(234, 179, 8, ${Math.min(0.98, turbidity)})`);
+      ctx.fillStyle = liquidGrad;
+      ctx.fill();
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Obscuration overlay on the "X" viewed through liquid
+      ctx.fillStyle = `rgba(254, 240, 138, ${turbidity * 0.9})`;
+      ctx.fillRect(flaskX - 22, flaskY + 16, 44, 18);
+
+      // Metrics & Spectrophotometer HUD
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Na₂S₂O₃ + 2HCl ➔ S(s) + SO₂ + 2NaCl + H₂O', 35, 30);
+
+      ctx.fillStyle = turbidity > 0.85 ? '#ef4444' : turbidity > 0.5 ? '#f59e0b' : '#10b981';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`Cross Visibility: ${turbidity > 0.85 ? 'OBSCURED (Reaction Done)' : turbidity > 0.5 ? 'Fading' : 'Clear'}`, 35, 48);
+      ctx.fillText(`Temp = ${tempC}°C | [Na₂S₂O₃] = ${thiosulfateConc} M | t_disappear ≈ ${timeToDisappear}s`, 35, 66);
+    } else if (simulationType === 'plant-growth') {
+      // Phototropism & Nutrient Stunting
+      const lightSide = variableValues.lightDirection ?? 1; // -1 left, 0 overhead, 1 right
+      const nitrogenLevel = variableValues.soilNitrogenPpm ?? 50; // 0 to 100
+      const bendDeg = lightSide * 32;
+
+      // Planter Pot
+      const potX = w * 0.5;
+      const potY = h * 0.72;
+
+      ctx.fillStyle = '#78350f';
+      ctx.beginPath();
+      ctx.moveTo(potX - 45, potY);
+      ctx.lineTo(potX + 45, potY);
+      ctx.lineTo(potX + 35, potY + 45);
+      ctx.lineTo(potX - 35, potY + 45);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#b45309';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Soil
+      ctx.fillStyle = '#1e1b4b';
+      ctx.fillRect(potX - 40, potY - 4, 80, 8);
+
+      // Seedling stem with phototropic curve towards light
+      ctx.save();
+      ctx.translate(potX, potY);
+      ctx.rotate((bendDeg * Math.PI) / 180);
+
+      // Chlorophyll color based on Nitrogen
+      const leafColor = nitrogenLevel > 40 ? '#22c55e' : nitrogenLevel > 15 ? '#84cc16' : '#eab308';
+      ctx.strokeStyle = '#15803d';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(0, -45, 0, -85);
+      ctx.stroke();
+
+      // Leaves
+      ctx.fillStyle = leafColor;
+      ctx.beginPath();
+      ctx.ellipse(-15, -60, 16, 7, -Math.PI / 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(15, -60, 16, 7, Math.PI / 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(0, -90, 14, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // Light Lamp icon on corresponding side
+      const lampX = lightSide < 0 ? 55 : lightSide > 0 ? w - 55 : w / 2;
+      const lampY = 45;
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(lampX, lampY, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.stroke();
+      ctx.fillStyle = '#fef08a';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('SUNLIGHT', lampX, lampY + 28);
+
+      // Status text
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Auxin Asymmetric Redistribution (Phototropism)', 35, 26);
+      ctx.font = '10px monospace';
+      ctx.fillStyle = '#a3e635';
+      ctx.fillText(`Nitrogen: ${nitrogenLevel} ppm (${nitrogenLevel < 30 ? 'Nitrate Deficient Chlorosis' : 'Vibrant Chlorophyll'})`, 35, 42);
+      ctx.fillText(`Auxin concentration highest on shaded flank ➔ Curvature: ${bendDeg}°`, 35, 58);
+    } else if (simulationType === 'enzyme-denaturation') {
+      // Catalase breakdown of H2O2 into H2O + O2 (Foam Column Height)
+      const tempC = variableValues.reactionTemp ?? 37;
+      const ph = variableValues.phLevel ?? 7.0;
+
+      // Enzyme activity bell curves for Temp and pH
+      const tempFactor = tempC > 55 ? 0 : Math.max(0, 1 - Math.pow((tempC - 37) / 20, 2));
+      const phFactor = Math.max(0, 1 - Math.pow((ph - 7.0) / 2.5, 2));
+      const activityRate = tempFactor * phFactor;
+      const foamHeight = Math.min(100, activityRate * 95);
+      const isDenatured = tempC > 55;
+
+      const cylX = w * 0.5;
+      const cylY = h * 0.78;
+      const cylW = 48;
+      const cylH = 130;
+
+      // Graduated Cylinder
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(cylX - cylW / 2, cylY - cylH, cylW, cylH);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cylX - cylW / 2, cylY - cylH, cylW, cylH);
+
+      // Base liquid (H2O2 + Enzyme solution)
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(cylX - cylW / 2 + 2, cylY - 25, cylW - 4, 23);
+
+      // Foam column rising (O2 bubbles)
+      if (foamHeight > 2) {
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(cylX - cylW / 2 + 2, cylY - 25 - foamHeight, cylW - 4, foamHeight);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.strokeRect(cylX - cylW / 2 + 2, cylY - 25 - foamHeight, cylW - 4, foamHeight);
+      }
+
+      // Cylinder volume tick markings
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1;
+      for (let mark = 0; mark <= 100; mark += 20) {
+        const markY = cylY - 25 - (mark / 100) * 95;
+        ctx.beginPath();
+        ctx.moveTo(cylX + cylW / 2 - 8, markY);
+        ctx.lineTo(cylX + cylW / 2, markY);
+        ctx.stroke();
+      }
+
+      // Header Readout
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('2 H₂O₂  —(Catalase Enzyme)➔  2 H₂O + O₂(g) Bubble Foam', 35, 26);
+
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = isDenatured ? '#ef4444' : activityRate > 0.6 ? '#10b981' : '#f59e0b';
+      ctx.fillText(
+        isDenatured
+          ? 'STATUS: IRREVERSIBLY DENATURED (Tertiary Folding Disrupted, Zero Activity)'
+          : `STATUS: ACTIVE (Catalytic Activity: ${(activityRate * 100).toFixed(0)}%)`,
+        35,
+        45
+      );
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`Temp = ${tempC}°C (Optimal ~37°C) | pH = ${ph.toFixed(1)} | Foam Vol = ${foamHeight.toFixed(0)} mL`, 35, 62);
     } else {
       // General scientific measurement chamber representation
       ctx.fillStyle = '#1e293b';

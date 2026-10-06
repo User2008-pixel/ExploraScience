@@ -80,7 +80,7 @@ export const NCERT_CLASS10_PHYSICS_CONCEPTS: ConceptItem[] = [
         description: 'Concave mirrors produce powerful parallel light beams when the lamp is placed at the principal focus.',
       },
     ],
-    simulationType: 'class10-physics',
+    simulationType: 'spherical-mirrors',
   },
   {
     id: 'ncert10-phy-concave-mirror-image-formation',
@@ -157,7 +157,7 @@ export const NCERT_CLASS10_PHYSICS_CONCEPTS: ConceptItem[] = [
         description: 'Positioning a high-intensity filament bulb at the focus of a concave mirror casts an intense parallel beam along the road.',
       },
     ],
-    simulationType: 'class10-physics',
+    simulationType: 'spherical-mirrors',
   },
   {
     id: 'ncert10-phy-convex-mirror-rear-view',
@@ -234,7 +234,7 @@ export const NCERT_CLASS10_PHYSICS_CONCEPTS: ConceptItem[] = [
         description: 'Mounted at sharp corridor turns and shop ceilings to view oncoming traffic and aisles.',
       },
     ],
-    simulationType: 'class10-physics',
+    simulationType: 'spherical-mirrors',
   },
   {
     id: 'ncert10-phy-refraction-snell-law',

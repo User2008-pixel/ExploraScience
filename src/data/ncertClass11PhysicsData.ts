@@ -88,7 +88,7 @@ export const NCERT_CLASS11_PHYSICS_CONCEPTS: ConceptItem[] = [
       { title: 'Automobile Anti-Lock Braking Systems (ABS)', description: 'ABS modulates brake pressure to keep tires in the higher static friction regime.' },
       { title: 'Mountain Highway Switchbacks', description: 'Roads are built with shallow inclination angles below the angle of repose.' },
     ],
-    simulationType: 'class11-physics',
+    simulationType: 'friction-dynamics',
   },
 
   // --- WORK, ENERGY & POWER ---
