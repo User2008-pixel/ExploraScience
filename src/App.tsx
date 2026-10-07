@@ -33,6 +33,7 @@ import { PWAInstallButton } from './components/common/PWAInstallButton';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { AdminReviewsView } from './components/admin/AdminReviewsView';
 import { UserProfile, GradeLevel } from './types/auth';
+import { storage } from './utils/storage';
 
 import {
   Compass,
@@ -236,12 +237,28 @@ export default function App() {
     };
   });
 
-  // Save progress changes
+  // Save progress changes to both localStorage and IndexedDB durable cache
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(progress));
+      storage.saveProgress(progress);
     } catch {}
   }, [progress]);
+
+  // Restore from IndexedDB if localStorage is missing (secondary backup mechanism)
+  useEffect(() => {
+    const syncBackup = async () => {
+      const hasLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!hasLocal) {
+        const idbProgress = await storage.getProgress();
+        if (idbProgress) {
+          setProgress(idbProgress);
+          console.log('[Storage] Restored progress from IndexedDB durable cache');
+        }
+      }
+    };
+    syncBackup();
+  }, []);
 
   const handleSelectConcept = (conceptId: string) => {
     setSelectedConceptId(conceptId);
@@ -263,6 +280,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleOpenPractical = (practicalId: string) => {
+    setSelectedPracticalId(practicalId);
+    setActiveTab('practicals');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleCompleteInvestigation = (summary: {
     caseId: string;
     caseTitle: string;
@@ -280,6 +303,9 @@ export default function App() {
       ...summary,
       date: new Date().toISOString().split('T')[0],
     };
+
+    // Persist investigation to IndexedDB explicitly
+    storage.saveInvestigation(newRecord);
 
     // Add new mistake records if any detected
     const newMistakeRecords: MistakeRecord[] = summary.mistakes.map((cat) => ({

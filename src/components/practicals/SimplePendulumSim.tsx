@@ -355,8 +355,8 @@ export const SimplePendulumSim: React.FC<SimplePendulumSimProps> = ({
             {recordedTrials.length > 0 && (
               <button
                 onClick={() => {
-                  const headers = ['Trial', 'Length (cm)', 'Total Time (s)', 'Period T (s)', 'T^2 (s^2)', 'Calculated g (m/s^2)'];
-                  const rows = recordedTrials.map((t, idx) => [idx + 1, t.lengthCm, t.totalTimeS, t.periodT, t.tSquared, t.calculatedG]);
+                  const headers = ['Trial', 'Length (cm)', 'Time for Osc. (s)', 'Period T (s)', 'T^2 (s^2)', 'Calculated g (m/s^2)'];
+                  const rows = recordedTrials.map((t, idx) => [idx + 1, t.lengthCm, t.t20, t.periodT, t.tSquared, t.calculatedG]);
                   const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
                   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                   const url = URL.createObjectURL(blob);

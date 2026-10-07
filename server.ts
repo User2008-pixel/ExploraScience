@@ -1687,7 +1687,7 @@ Reply-To: ${sanitizedEmail ? sanitizedEmail : 'N/A'}
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR !== 'true',
+        hmr: false,
       },
       appType: 'spa',
     });

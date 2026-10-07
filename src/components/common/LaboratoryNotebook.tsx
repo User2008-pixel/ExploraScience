@@ -56,7 +56,6 @@ export const LaboratoryNotebook: React.FC<NotebookProps> = ({ activeContext, isO
           setIsOpen(true);
           // Clean up URL
           window.history.replaceState({}, '', window.location.pathname);
-          alert('Shared notes imported successfully!');
         }
       } catch (e) {
         console.error('Failed to parse shared notes', e);
@@ -176,7 +175,6 @@ export const LaboratoryNotebook: React.FC<NotebookProps> = ({ activeContext, isO
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopyFeedback(true);
       setTimeout(() => setCopyFeedback(false), 2000);
-      alert('Shareable link copied to clipboard! Anyone with this link can view your notes.');
     });
   };
 

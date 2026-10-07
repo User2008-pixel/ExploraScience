@@ -2,6 +2,45 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Suppress harmless Vite HMR WebSocket connection errors in cloud container preview environment
+      (function() {
+        var origError = console.error;
+        console.error = function() {
+          var args = Array.prototype.slice.call(arguments);
+          var msg = args.map(function(a) { return (a && a.message) || String(a); }).join(' ');
+          if (
+            msg.indexOf('WebSocket closed without opened') !== -1 ||
+            msg.indexOf('failed to connect to websocket') !== -1 ||
+            (args[0] === '[vite]' && msg.indexOf('WebSocket') !== -1)
+          ) {
+            return; // Expected: HMR is disabled in this environment
+          }
+          origError.apply(console, args);
+        };
+
+        window.addEventListener('error', function(event) {
+          if (
+            (event.message && event.message.indexOf('WebSocket') !== -1) ||
+            (event.error && event.error.message && event.error.message.indexOf('WebSocket') !== -1) ||
+            (event.filename && event.filename.indexOf('@vite/client') !== -1)
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (
+            (event.reason && event.reason.message && event.reason.message.indexOf('WebSocket') !== -1) ||
+            (event.reason && event.reason.stack && event.reason.stack.indexOf('@vite/client') !== -1)
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>ScienceLab Explorer</title>
     <meta name="description" content="Interactive science visualization, prediction, and detective investigation laboratory for Class 9–12 students." />
