@@ -26,6 +26,7 @@ import {
   Sparkles,
   Zap,
   Lock,
+  Download,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -891,6 +892,27 @@ export const DetectiveInvestigationView: React.FC<DetectiveInvestigationViewProp
     setMeasurements((prev) => [...prev, newMeasurement]);
   };
 
+  const handleDownloadCSV = () => {
+    if (measurements.length === 0) return;
+    const headers = ['Trial', `Independent Variable (${selectedIndepVar})`, 'Observed Dependent', 'Timestamp', 'Notes'];
+    const rows = measurements.map((m) => [
+      m.trial,
+      m.independentVal,
+      m.dependentVal,
+      m.timestamp,
+      `"${m.controlledNotes || ''}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `detective-case-${detectiveCase.id}-data.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleShowNextHint = () => {
     if (hintLevel >= detectiveCase.progressiveHints.length) return;
 
@@ -1552,12 +1574,24 @@ export const DetectiveInvestigationView: React.FC<DetectiveInvestigationViewProp
                 <TableIcon className="w-5 h-5" />
                 <h2 className="text-lg font-bold text-white">Step 6: Empirical Data Table</h2>
               </div>
-              <button
-                onClick={() => setMeasurements([])}
-                className="flex items-center gap-1 text-xs text-rose-400 hover:underline"
-              >
-                <RefreshCw className="w-3 h-3" /> Clear Data
-              </button>
+              <div className="flex items-center gap-3">
+                {measurements.length > 0 && (
+                  <button
+                    onClick={handleDownloadCSV}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 text-xs font-bold transition"
+                    title="Download collected experiment measurements as CSV file"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download CSV</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setMeasurements([])}
+                  className="flex items-center gap-1 text-xs text-rose-400 hover:underline"
+                >
+                  <RefreshCw className="w-3 h-3" /> Clear Data
+                </button>
+              </div>
             </div>
 
             {measurements.length === 0 ? (

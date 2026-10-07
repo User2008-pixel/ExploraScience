@@ -3,6 +3,7 @@ import { StudentProgress, CompletedInvestigation } from '../../types/science';
 import { CONCEPTS_DATA } from '../../data/conceptsData';
 import { DETECTIVE_CASES } from '../../data/detectiveCasesData';
 import { AchievementsDashboard } from '../dashboard/AchievementsDashboard';
+import { Leaderboard } from './Leaderboard';
 import {
   ACHIEVEMENT_BADGES,
   calculateStudentXP,
@@ -129,11 +130,18 @@ export const MyProgressView: React.FC<MyProgressViewProps> = ({
 
       {activeSubTab === 'achievements' ? (
         /* Achievements Dashboard Component */
-        <AchievementsDashboard
-          progress={progress}
-          onExploreMore={onExploreConcepts}
-          onStartInvestigation={onStartInvestigation}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <AchievementsDashboard
+              progress={progress}
+              onExploreMore={onExploreConcepts}
+              onStartInvestigation={onStartInvestigation}
+            />
+          </div>
+          <div className="lg:col-span-1">
+            <Leaderboard />
+          </div>
+        </div>
       ) : (
         /* Investigation Records & Empirical Metrics */
         <div className="space-y-6">

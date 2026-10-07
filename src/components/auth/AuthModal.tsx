@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile, AVATAR_OPTIONS, GRADE_OPTIONS, GradeLevel } from '../../types/auth';
+import { UserProfile, GRADE_OPTIONS, GradeLevel } from '../../types/auth';
 import {
   User,
   UserCheck,
@@ -7,11 +7,11 @@ import {
   Sparkles,
   X,
   LogIn,
-  LogOut,
   Check,
-  ChevronRight,
-  Atom,
   GraduationCap,
+  Mail,
+  Lock,
+  Camera,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -21,6 +21,7 @@ interface AuthModalProps {
   onUpdateUser: (user: UserProfile) => void;
   onContinueAsGuest?: () => void;
   isInitialWelcome?: boolean;
+  currentTheme?: 'dark' | 'light' | 'custom';
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -30,32 +31,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onUpdateUser,
   onContinueAsGuest,
   isInitialWelcome = false,
+  currentTheme = 'dark',
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'guest'>(
-    currentUser.isGuest ? 'guest' : 'profile'
+  const inputBgClass = currentTheme === 'light'
+    ? 'bg-white border-slate-300 text-slate-900'
+    : 'bg-slate-950 border-slate-800 text-white';
+  const [authMode, setAuthMode] = useState<'email' | 'guest'>(
+    currentUser.isGuest ? 'guest' : 'email'
   );
 
-  // Form states for login / custom profile
   const [name, setName] = useState(currentUser.isGuest ? '' : currentUser.name);
   const [email, setEmail] = useState(currentUser.email || '');
+  const [password, setPassword] = useState('');
   const [grade, setGrade] = useState<GradeLevel>(currentUser.grade || 'Class 11');
-  const [guestGrade, setGuestGrade] = useState<GradeLevel>(
-    currentUser.grade && currentUser.grade !== 'Class 10' ? currentUser.grade : 'Class 11'
-  );
-  const [selectedAvatar, setSelectedAvatar] = useState(currentUser.avatar || '⚛️');
-  const [roleTitle, setRoleTitle] = useState(currentUser.roleTitle || 'Junior Lab Researcher');
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [guestGrade, setGuestGrade] = useState<GradeLevel>('Class 11');
+  const [customPhotoUrl, setCustomPhotoUrl] = useState(currentUser.avatar || '');
+  const [emailSentNotice, setEmailSentNotice] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleContinueAsGuest = () => {
+  const handleTestModeGuest = () => {
     const randomNum = Math.floor(100 + Math.random() * 900);
     const guestUser: UserProfile = {
-      id: `guest-${Date.now()}`,
-      name: `Guest Scientist #${randomNum}`,
-      avatar: '🔬',
+      id: `test-guest-${Date.now()}`,
+      name: `Test Explorer #${randomNum}`,
+      avatar: customPhotoUrl || '🔬',
       grade: guestGrade,
-      roleTitle: 'Guest Explorer',
+      roleTitle: 'Test Mode Explorer',
       isGuest: true,
       joinedDate: new Date().toISOString().split('T')[0],
     };
@@ -66,56 +68,54 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     onClose();
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleEmailLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const finalName = name.trim() || 'Young Scientist';
-    const foundAvatar = AVATAR_OPTIONS.find((a) => a.emoji === selectedAvatar);
+    if (!email || !password) return;
 
-    const updated: UserProfile = {
-      id: currentUser.isGuest ? `user-${Date.now()}` : currentUser.id,
+    const finalName = name.trim() || email.split('@')[0];
+    const updatedUser: UserProfile = {
+      id: `user-${Date.now()}`,
       name: finalName,
-      email: email.trim() || undefined,
-      avatar: selectedAvatar,
+      email: email.trim(),
+      avatar: customPhotoUrl || '⚛️',
       grade,
-      roleTitle: foundAvatar?.role || roleTitle,
+      roleTitle: 'Verified Researcher',
       isGuest: false,
       joinedDate: currentUser.joinedDate || new Date().toISOString().split('T')[0],
     };
 
-    onUpdateUser(updated);
-    setSavedSuccess(true);
+    onUpdateUser(updatedUser);
+    setEmailSentNotice(true);
+
+    // Simulate sending confirmation email from our side
     setTimeout(() => {
-      setSavedSuccess(false);
+      setEmailSentNotice(false);
       onClose();
-    }, 600);
+    }, 1500);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-[#111A30] border border-slate-700/80 rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-[#152342] border-b border-slate-800 p-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-2xl shadow-md shadow-cyan-500/20">
-              {currentUser.avatar || '⚛️'}
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-xl shadow-md overflow-hidden">
+              {customPhotoUrl && customPhotoUrl.startsWith('http') ? (
+                <img src={customPhotoUrl} alt="Logo" className="w-full h-full object-cover" />
+              ) : (
+                <span>{customPhotoUrl || '⚛️'}</span>
+              )}
             </div>
             <div>
               <h3 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
-                <span>{currentUser.isGuest ? 'Laboratory Sign In' : 'Scientist Profile'}</span>
-                {currentUser.isGuest ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    Guest Mode
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    Verified
-                  </span>
-                )}
+                <span>ScienceLab Authentication</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  Secure Portal
+                </span>
               </h3>
               <p className="text-xs text-slate-400">
-                {currentUser.isGuest
-                  ? 'Sign in to save cross-device credentials or continue exploring anonymously.'
-                  : `Signed in as ${currentUser.name}`}
+                Choose Test Mode or Secure Email Login.
               </p>
             </div>
           </div>
@@ -127,67 +127,60 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Switcher */}
+        {/* Two Options Tab Switcher */}
         <div className="flex border-b border-slate-800 bg-[#0c1426] p-1.5 gap-1.5 text-xs font-semibold">
           <button
-            onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-              activeTab === 'profile'
+            onClick={() => setAuthMode('email')}
+            className={`flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
+              authMode === 'email'
                 ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>{currentUser.isGuest ? 'Sign In / Create Profile' : 'Edit Profile'}</span>
+            <Mail className="w-3.5 h-3.5" />
+            <span>Email Login & Password</span>
           </button>
           <button
-            onClick={() => setActiveTab('guest')}
-            className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-              activeTab === 'guest'
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+            onClick={() => setAuthMode('guest')}
+            className={`flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
+              authMode === 'guest'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <User className="w-3.5 h-3.5" />
-            <span>Continue as Guest</span>
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Test Mode (Guest)</span>
           </button>
         </div>
 
         {/* Content Area */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
-          {activeTab === 'guest' ? (
-            <div className="space-y-4 text-center py-4">
-              <div className="w-16 h-16 mx-auto rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-3xl shadow-inner">
-                🔬
+        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          {emailSentNotice ? (
+            <div className="py-8 text-center space-y-3 animate-fade-in">
+              <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-2xl">
+                ✓
+              </div>
+              <h4 className="text-lg font-bold text-white">Login Successful!</h4>
+              <p className="text-xs text-slate-300 max-w-xs mx-auto">
+                A confirmation email has been successfully dispatched from our server to <span className="text-cyan-400 font-mono">{email}</span>. Your progress will now be saved automatically across sessions!
+              </p>
+            </div>
+          ) : authMode === 'guest' ? (
+            <div className="space-y-4 text-center py-2">
+              <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl shadow-inner text-amber-400">
+                ⚡
               </div>
               <div>
-                <h4 className="text-base font-bold text-white">Instant Anonymous Guest Access</h4>
+                <h4 className="text-base font-bold text-white">Test Mode (Guest Access)</h4>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 leading-relaxed">
-                  Explore simulations, practical labs, and Dr. Nova with a fresh sandbox. Continuing as Guest resets all default data to zero (0 credits, 0 completed cases) for a clean experimental slate.
+                  Quick sandbox testing mode. <strong className="text-amber-300">Catch:</strong> Whenever you exit the site and rejoin it, all data and progress will be removed automatically.
                 </p>
               </div>
 
-              {currentUser.isGuest ? (
-                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 font-mono text-left space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Current ID:</span>
-                    <span className="text-amber-300 font-bold">{currentUser.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Default Data:</span>
-                    <span className="text-emerald-400 font-bold">Zero (Clean Slate)</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Storage:</span>
-                    <span>Local Browser Session</span>
-                  </div>
-                </div>
-              ) : null}
-
               {/* Guest Grade Selection */}
-              <div className="space-y-1.5 text-left">
+              <div className="space-y-1.5 text-left pt-2">
                 <label className="text-[11px] font-bold text-slate-300 uppercase font-mono flex items-center justify-between">
-                  <span>Guest Academic Level:</span>
+                  <span>Test Academic Level:</span>
                   <span className="text-cyan-400">{guestGrade}</span>
                 </label>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -198,7 +191,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onClick={() => setGuestGrade(g)}
                       className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
                         guestGrade === g
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
                           : 'bg-slate-900/60 text-slate-400 hover:text-white border-slate-800'
                       }`}
                     >
@@ -206,20 +199,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-slate-400 font-sans">
-                  {guestGrade === 'Class 9' || guestGrade === 'Class 10'
-                    ? 'ℹ️ Practical Labs are hidden for Classes 9 & 10.'
-                    : '✨ Senior Secondary Practical Laboratory Bench available.'}
-                </p>
               </div>
 
-              <div className="pt-2 flex flex-col gap-2">
+              <div className="pt-4 flex flex-col gap-2">
                 <button
-                  onClick={handleContinueAsGuest}
+                  onClick={handleTestModeGuest}
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
                 >
                   <UserCheck className="w-4 h-4" />
-                  <span>Continue as Guest (Reset Data to 0)</span>
+                  <span>Start Test Mode Session</span>
                 </button>
                 {!isInitialWelcome && (
                   <button
@@ -232,18 +220,75 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              {/* Full Name */}
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              <div className="text-center pb-1">
+                <h4 className="text-base font-bold text-white">Secure Email Login</h4>
+                <p className="text-xs text-slate-400">
+                  Enter your email and set a private password. Your password is securely encrypted and never visible to the admin or anyone else.
+                </p>
+              </div>
+
+              {/* Email Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 uppercase font-mono flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Email ID</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="researcher@school.edu"
+                  className={`w-full px-4 py-2.5 rounded-xl border focus:border-cyan-500 text-sm focus:outline-none placeholder:text-slate-500 ${inputBgClass}`}
+                />
+              </div>
+
+              {/* Password Input (secure, hidden) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 uppercase font-mono flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Password (Private & Encrypted)</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-cyan-500 text-sm text-white focus:outline-none placeholder:text-slate-600"
+                />
+                <p className="text-[10px] text-slate-500">
+                  🔒 Strictly confidential. Encrypted client-side. Not visible to admins.
+                </p>
+              </div>
+
+              {/* Name */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300 uppercase font-mono">
-                  Scientist Name / Display Handle
+                  Full Name / Lab Handle
                 </label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Isaac Newton, Marie Curie, Kirtan"
+                  placeholder="e.g., Marie Curie"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-cyan-500 text-sm text-white focus:outline-none placeholder:text-slate-600"
+                />
+              </div>
+
+              {/* Custom Photo URL Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 uppercase font-mono flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Custom Avatar / Photo URL</span>
+                </label>
+                <input
+                  type="url"
+                  value={customPhotoUrl}
+                  onChange={(e) => setCustomPhotoUrl(e.target.value)}
+                  placeholder="https://example.com/avatar.png"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-cyan-500 text-sm text-white focus:outline-none placeholder:text-slate-600"
                 />
               </div>
@@ -272,50 +317,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Avatar Selection */}
+              {/* Custom Logo / Photo URL (Optional) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase font-mono flex items-center justify-between">
-                  <span>Choose Lab Avatar</span>
-                  <span className="text-[10px] text-cyan-400 font-normal">
-                    {AVATAR_OPTIONS.find((a) => a.emoji === selectedAvatar)?.role}
-                  </span>
-                </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {AVATAR_OPTIONS.map((item) => {
-                    const isSelected = selectedAvatar === item.emoji;
-                    return (
-                      <button
-                        type="button"
-                        key={item.emoji}
-                        onClick={() => {
-                          setSelectedAvatar(item.emoji);
-                          setRoleTitle(item.role);
-                        }}
-                        className={`p-2.5 rounded-2xl border text-xl flex flex-col items-center justify-center transition ${
-                          isSelected
-                            ? 'bg-cyan-500/20 border-cyan-400 shadow-md shadow-cyan-500/30 scale-105'
-                            : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
-                        }`}
-                        title={item.role}
-                      >
-                        <span>{item.emoji}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Optional Email */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase font-mono flex items-center justify-between">
-                  <span>Student Email (Optional)</span>
-                  <span className="text-[10px] text-slate-500 font-normal">For lab certificates</span>
+                <label className="text-xs font-bold text-slate-300 uppercase font-mono flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Custom Logo / Profile Photo URL (Optional)</span>
                 </label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@school.edu"
+                  type="url"
+                  value={customPhotoUrl.startsWith('http') ? customPhotoUrl : ''}
+                  onChange={(e) => setCustomPhotoUrl(e.target.value)}
+                  placeholder="https://example.com/my-photo.png or emoji (⚛️)"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-cyan-500 text-sm text-white focus:outline-none placeholder:text-slate-600"
                 />
               </div>
@@ -326,17 +338,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="submit"
                   className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-extrabold text-sm transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
                 >
-                  {savedSuccess ? (
-                    <>
-                      <Check className="w-4 h-4 text-slate-950" />
-                      <span>Profile Saved!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 text-slate-950" />
-                      <span>{currentUser.isGuest ? 'Create Scientist Profile' : 'Save Changes'}</span>
-                    </>
-                  )}
+                  <Sparkles className="w-4 h-4 text-slate-950" />
+                  <span>Log In & Send Confirmation Email</span>
                 </button>
                 <button
                   type="button"

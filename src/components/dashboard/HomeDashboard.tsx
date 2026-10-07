@@ -22,6 +22,7 @@ import {
   LineChart,
   FlaskConical,
   GraduationCap,
+  FileText,
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -31,6 +32,7 @@ interface HomeDashboardProps {
   onSelectCase: (caseId: string) => void;
   isPracticalsAvailable?: boolean;
   userGrade?: GradeLevel;
+  onOpenLogbook?: () => void;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -40,6 +42,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onSelectCase,
   isPracticalsAvailable = true,
   userGrade = 'Class 11',
+  onOpenLogbook,
 }) => {
   // Mini interactive projectile hero simulation
   const [heroAngle, setHeroAngle] = useState(45);
@@ -122,6 +125,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <ShieldAlert className="w-4 h-4 text-cyan-400" />
                 <span>Science Detective</span>
               </button>
+              {onOpenLogbook && (
+                <button
+                  onClick={onOpenLogbook}
+                  className="px-5 py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-semibold text-sm transition flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4 text-emerald-400" />
+                  <span>Open Logbook</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -195,6 +207,85 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <div className="text-xs text-slate-400">Active Streak</div>
           </div>
         </div>
+      </div>
+
+      {/* Student Laboratory Logbook (Experiments & Concepts Done) */}
+      <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-base font-bold text-white">Student Laboratory Logbook (Experiments & Concepts Done)</h3>
+          </div>
+          <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/30">
+            {progress.exploredConceptIds.length} Explored • {(progress.completedInvestigations || []).length} Investigations Done
+          </span>
+        </div>
+
+        {progress.exploredConceptIds.length === 0 && (!progress.completedInvestigations || progress.completedInvestigations.length === 0) ? (
+          <div className="text-center py-8 text-slate-400 text-xs space-y-2">
+            <FlaskConical className="w-8 h-8 text-slate-600 mx-auto" />
+            <p>Your lab notebook is currently empty. Start exploring concepts or complete detective investigations to record your experiments here!</p>
+            <button
+              onClick={() => onNavigateTab('concepts')}
+              className="px-4 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 font-bold text-xs border border-cyan-500/30 hover:bg-cyan-500/30 transition"
+            >
+              Explore First Concept
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Explored Concepts List */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Explored Scientific Principles & Concepts</span>
+              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                {progress.exploredConceptIds.map((cId) => {
+                  const conceptObj = CONCEPTS_DATA.find((c) => c.id === cId);
+                  if (!conceptObj) return null;
+                  return (
+                    <div
+                      key={cId}
+                      onClick={() => onSelectConcept(cId)}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-cyan-500/40 cursor-pointer transition text-xs"
+                    >
+                      <span className="text-slate-200 font-medium truncate">{conceptObj.title}</span>
+                      <span className="text-[10px] font-mono text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 shrink-0">
+                        {conceptObj.gradeLevel}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Completed Detective Investigations / Lab Experiments */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Completed Detective Investigations & Lab Runs</span>
+              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                {(!progress.completedInvestigations || progress.completedInvestigations.length === 0) ? (
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-500 italic text-center">
+                    No forensic case investigations submitted yet.
+                  </div>
+                ) : (
+                  progress.completedInvestigations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      onClick={() => onSelectCase(inv.caseId)}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/40 cursor-pointer transition text-xs"
+                    >
+                      <div className="truncate">
+                        <div className="text-slate-200 font-medium truncate">{inv.caseTitle}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">Score: {inv.understandingScore}% accuracy</div>
+                      </div>
+                      <span className="text-[10px] font-mono text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 shrink-0">
+                        {inv.date}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Science Detective Forensic Mystery Spotlight */}

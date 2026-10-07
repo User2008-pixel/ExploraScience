@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Timer, Sparkles, LineChart } from 'lucide-react';
+import { Play, Pause, RotateCcw, Timer, Sparkles, LineChart, Download } from 'lucide-react';
 
 interface SimplePendulumSimProps {
   initialLengthCm?: number;
@@ -351,9 +351,33 @@ export const SimplePendulumSim: React.FC<SimplePendulumSimProps> = ({
             <LineChart className="w-4 h-4 text-cyan-400" />
             <span>Observation Table: Length vs Time Period T²</span>
           </span>
-          <span className="text-cyan-300 font-bold">
-            Target g = 4π² (L / T²) = {gravity} m/s² ({gravityPlanet})
-          </span>
+          <div className="flex items-center gap-3">
+            {recordedTrials.length > 0 && (
+              <button
+                onClick={() => {
+                  const headers = ['Trial', 'Length (cm)', 'Total Time (s)', 'Period T (s)', 'T^2 (s^2)', 'Calculated g (m/s^2)'];
+                  const rows = recordedTrials.map((t, idx) => [idx + 1, t.lengthCm, t.totalTimeS, t.periodT, t.tSquared, t.calculatedG]);
+                  const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.setAttribute('href', url);
+                  link.setAttribute('download', 'simple-pendulum-experiment-data.csv');
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 font-bold transition text-[11px]"
+                title="Download experiment data as CSV file"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download CSV</span>
+              </button>
+            )}
+            <span className="text-cyan-300 font-bold">
+              Target g = 4π² (L / T²) = {gravity} m/s² ({gravityPlanet})
+            </span>
+          </div>
         </div>
 
         {recordedTrials.length === 0 ? (

@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+:root {
+  --bg: #0c0c0e;
+  --ink: #edeee9;
+  --ink-dim: rgba(237, 238, 233, 0.4);
+  --ink-faint: rgba(237, 238, 233, 0.08);
+  --accent: #38bdf8;
+  --accent-dim: rgba(56, 189, 248, 0.15);
+  --surface: #151518;
+}
+
+/* Grid Texture */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(var(--ink-faint) 1px, transparent 0);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
 @layer base {
   :root {
     --color-lab-navy: #0B1120;

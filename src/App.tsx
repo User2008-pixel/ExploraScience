@@ -27,6 +27,10 @@ import { ConfirmResetModal } from './components/common/ConfirmResetModal';
 import { UndoToast } from './components/common/UndoToast';
 import { CreditRewardToast } from './components/common/CreditRewardToast';
 import { ReviewModal } from './components/common/ReviewModal';
+import { LaboratoryNotebook } from './components/common/LaboratoryNotebook';
+import { OnboardingModal } from './components/common/OnboardingModal';
+import { PWAInstallButton } from './components/common/PWAInstallButton';
+import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { AdminReviewsView } from './components/admin/AdminReviewsView';
 import { UserProfile, GradeLevel } from './types/auth';
 
@@ -47,6 +51,8 @@ import {
   Coins,
   FlaskConical,
   MessageSquare,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
 
 type NavTab = 'home' | 'concepts' | 'practicals' | 'detective' | 'calculator' | 'progress' | 'mistakes' | 'settings';
@@ -63,8 +69,10 @@ export default function App() {
   const [isAITutorOpen, setIsAITutorOpen] = useState(false);
   const [tutorInitialQuestion, setTutorInitialQuestion] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isNavDropdownOpen, setIsNavDropdownOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(true);
+  const [isNotebookOpen, setIsNotebookOpen] = useState(false);
   // Private Admin Route Handler (/admin/reviews)
   const [isAdminRoute, setIsAdminRoute] = useState(() =>
     typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/reviews')
@@ -92,11 +100,6 @@ export default function App() {
     };
   }, []);
 
-  const handleOpenPractical = (practicalId: string) => {
-    setSelectedPracticalId(practicalId);
-    setActiveTab('practicals');
-  };
-
   // Authentication & User Profile State: Prompts for login or guest account upon opening
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
     try {
@@ -121,6 +124,19 @@ export default function App() {
       joinedDate: new Date().toISOString().split('T')[0],
     };
   });
+
+  // Test mode (guest): automatically remove/clear data when exiting or closing site
+  useEffect(() => {
+    if (currentUser.isGuest) {
+      const handleBeforeUnload = () => {
+        try {
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+        } catch {}
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+  }, [currentUser.isGuest]);
 
   // Save user profile changes
   const handleUpdateUser = (updated: UserProfile) => {
@@ -423,113 +439,103 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col font-sans lab-grid">
+    <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col font-sans lab-grid transition-colors duration-300">
+      <div className="bg-grid"></div>
       {/* Top Main Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          {/* Brand Logo */}
-          <button
-            onClick={() => {
-              setActiveTab('home');
-              setSelectedConceptId(null);
-              setSelectedCaseId(null);
-            }}
-            className="flex items-center gap-2.5 text-left group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-500 flex items-center justify-center text-slate-950 font-black shadow-md shadow-cyan-500/20 group-hover:scale-105 transition">
-              <Compass className="w-5 h-5 text-slate-950" />
-            </div>
-            <div>
-              <div className="text-base font-extrabold text-white tracking-tight flex items-center gap-1">
-                <span>ScienceLab</span>
-                <span className="text-cyan-400">Explorer</span>
-              </div>
-              <div className="text-[10px] text-slate-400 font-mono tracking-wider uppercase -mt-0.5">
-                Class 9–12 Scientific Sandbox
-              </div>
-            </div>
-          </button>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id as NavTab);
-                    if (tab.id === 'concepts' && !selectedConceptId) {
-                      setSelectedConceptId(null);
-                    }
-                    if (tab.id === 'detective' && !selectedCaseId) {
-                      setSelectedCaseId(null);
-                    }
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    isActive
-                      ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Right Action: User Profile, Science Credits, Dr. Nova AI Mentor & Mobile Hamburger */}
-          <div className="flex items-center gap-2">
-            {/* User Scientist Profile / Guest Button */}
+      <header className="sticky top-0 z-50 bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 grid grid-cols-3 items-center">
+          {/* Left: Combined Navigation Menu Button & Dropdown */}
+          <div className="relative flex justify-start">
             <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-200 transition shadow-sm"
-              title={currentUser.isGuest ? 'Continue as Guest or Sign In' : `Signed in as ${currentUser.name}`}
+              onClick={() => setIsNavDropdownOpen(!isNavDropdownOpen)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-xs font-bold text-white hover:bg-slate-800 transition shadow-sm"
             >
-              <span className="text-sm">{currentUser.avatar || '🔬'}</span>
-              <span className="hidden sm:inline font-semibold max-w-[100px] truncate text-slate-100">
-                {currentUser.name}
+              <Menu className="w-4 h-4 text-cyan-400" />
+              <span>Menu</span>
+              <span className="border-l border-slate-700 h-4 mx-1"></span>
+              <span className="text-white">
+                {navTabs.find((t) => t.id === activeTab)?.label || 'Home'}
               </span>
-              {currentUser.isGuest ? (
-                <span className="hidden lg:inline px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Guest
-                </span>
-              ) : (
-                <span className="hidden lg:inline px-1.5 py-0.5 rounded text-[9px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                  {currentUser.grade}
-                </span>
-              )}
             </button>
 
-            {/* Science Credits Balance Badge */}
-            <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 text-xs font-mono font-bold text-amber-300 shadow-sm"
-              title="Science Credits Balance (Earned through rigorous scientific inquiries and experiments)"
-            >
-              <Coins className="w-3.5 h-3.5 text-amber-400" />
-              <span>{(progress.scienceCredits || 0).toLocaleString()} ⚛️</span>
-              <span className="hidden xl:inline text-[10px] text-amber-400/80 font-sans font-normal border-l border-amber-500/30 pl-1.5">
-                Credits
-              </span>
+            {isNavDropdownOpen && (
+              <div className="absolute left-0 mt-12 w-64 bg-[#0e1729] border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-fade-in">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 px-3 py-1.5">
+                  Navigation Menu
+                </div>
+                {navTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id as NavTab);
+                        setIsNavDropdownOpen(false);
+                        if (tab.id === 'concepts' && !selectedConceptId) {
+                          setSelectedConceptId(null);
+                        }
+                        if (tab.id === 'detective' && !selectedCaseId) {
+                          setSelectedCaseId(null);
+                        }
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                        isActive
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 text-cyan-400" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Center: Interactive Live Status Badge */}
+          <div className="flex justify-center">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Lab Live: {currentUser.name}</span>
+            </div>
+          </div>
+
+          {/* Right Action: PWA Install, Tutorial Guide & Dr. Nova AI Circular Chatbot Icon */}
+          <div className="flex justify-end items-center gap-3">
+            <div>
+              <PWAInstallButton />
             </div>
 
+            {/* Tutorial Button */}
+            <button
+              onClick={() => setIsOnboardingOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-bold text-cyan-300 transition shadow-sm"
+              title="Open Tutorial Walkthrough"
+            >
+              <BookOpen className="w-4 h-4 text-cyan-400" />
+              <span className="hidden sm:inline">Tutorial</span>
+            </button>
+
+            {/* Laboratory Notebook Button */}
+            <button
+              onClick={() => setIsNotebookOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-bold text-emerald-400 transition shadow-sm"
+              title="Open Laboratory Notebook"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Logbook</span>
+            </button>
+
+            {/* Dr. Nova AI Circular Chatbot Icon */}
             <button
               onClick={() => setIsAITutorOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500/20 to-cyan-500/20 hover:from-purple-500/30 hover:to-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-bold transition shadow-sm"
-              title="Open Dr. Nova Gemini STEM Mentor"
+              className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-cyan-500 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25 hover:scale-105 transition relative group"
+              title="Dr. Nova AI STEM Mentor"
             >
-              <Bot className="w-4 h-4 text-cyan-400" />
-              <span className="hidden sm:inline">Dr. Nova AI</span>
-            </button>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              <Bot className="w-5 h-5" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#070e1c] animate-pulse" />
             </button>
           </div>
         </div>
@@ -567,6 +573,11 @@ export default function App() {
               </div>
               <span className="text-amber-300">{(progress.scienceCredits || 0).toLocaleString()} ⚛️</span>
             </div>
+
+            <div className="mb-2">
+              <PWAInstallButton />
+            </div>
+            
             {navTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -603,6 +614,7 @@ export default function App() {
             onSelectCase={handleSelectCase}
             isPracticalsAvailable={isPracticalsAvailable}
             userGrade={currentUser.grade}
+            onOpenLogbook={() => setIsNotebookOpen(true)}
           />
         )}
 
@@ -718,6 +730,9 @@ export default function App() {
             currentUser={currentUser}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onOpenReviewModal={() => setIsReviewModalOpen(true)}
+            scienceCredits={progress.scienceCredits || 0}
+            onUpdateUser={handleUpdateUser}
+            onOpenTutorial={() => setIsOnboardingOpen(true)}
           />
         )}
       </main>
@@ -830,6 +845,22 @@ export default function App() {
             : 'General ScienceLab'
         }
       />
+
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onNavigateTab={setActiveTab}
+      />
+      
+      <LaboratoryNotebook
+        activeContext={
+          selectedCase ? selectedCase.title : selectedConcept ? selectedConcept.title : 'General Science'
+        }
+        isOpen={isNotebookOpen}
+        setIsOpen={setIsNotebookOpen}
+      />
+
+      <OfflineIndicator />
     </div>
   );
 }

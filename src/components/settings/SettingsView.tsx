@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DifficultyLevel } from '../../types/science';
 import { UserProfile } from '../../types/auth';
-import { Sliders, RotateCcw, Shield, CheckCircle, Info, User, LogIn, Sparkles, MessageSquare, Lock, Inbox } from 'lucide-react';
+import { Sliders, RotateCcw, Shield, CheckCircle, Info, User, LogIn, Sparkles, MessageSquare, Lock, Inbox, Coins, Compass, Palette, BookOpen, Camera } from 'lucide-react';
 
 interface SettingsViewProps {
   difficulty: DifficultyLevel;
@@ -10,6 +10,11 @@ interface SettingsViewProps {
   currentUser?: UserProfile;
   onOpenAuthModal?: () => void;
   onOpenReviewModal?: (initialView?: 'form' | 'inbox') => void;
+  scienceCredits?: number;
+  onUpdateUser?: (updated: UserProfile) => void;
+  currentTheme?: 'dark' | 'light' | 'custom';
+  onThemeChange?: (theme: 'dark' | 'light' | 'custom') => void;
+  onOpenTutorial?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -19,52 +24,142 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   currentUser,
   onOpenAuthModal,
   onOpenReviewModal,
+  scienceCredits = 0,
+  onUpdateUser,
+  currentTheme = 'dark',
+  onThemeChange,
+  onOpenTutorial,
 }) => {
+  const [customPhotoInput, setCustomPhotoInput] = useState(currentUser?.avatar || '');
+
+  const handleUpdatePhoto = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (currentUser && onUpdateUser) {
+      onUpdateUser({
+        ...currentUser,
+        avatar: customPhotoInput || '⚛️',
+      });
+    }
+  };
+
+  const handleToggleGuest = () => {
+    if (currentUser && onUpdateUser) {
+      const nextIsGuest = !currentUser.isGuest;
+      onUpdateUser({
+        ...currentUser,
+        isGuest: nextIsGuest,
+        name: nextIsGuest ? 'Test Mode User' : 'Verified Researcher',
+        roleTitle: nextIsGuest ? 'Test Mode Explorer' : 'Senior Lab Scientist',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex items-center justify-between">
+      {/* Header with Credits at Top */}
+      <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Settings & Lab Preferences</h1>
           <p className="text-slate-400 text-sm mt-1">
-            Configure difficulty levels, user profile credentials, and local data persistence.
+            Configure difficulty tiers, theme backgrounds, login mode, custom profile photo, and science credits balance.
           </p>
+        </div>
+
+        {/* Science Credits at Top of Settings */}
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-yellow-500/10 border border-amber-500/30 text-amber-300 font-mono font-bold text-sm shadow-md">
+          <Coins className="w-4 h-4 text-amber-400" />
+          <span>{scienceCredits.toLocaleString()} ⚛️ Science Credits</span>
         </div>
       </div>
 
-      {/* User Scientist Profile Section */}
+      {/* Tutorial & Onboarding Access */}
+      <div className="bg-gradient-to-r from-cyan-950/50 via-[#131E36] to-emerald-950/50 rounded-2xl border border-cyan-800/40 p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Interactive Tutorial & Guide</h3>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Re-open the walkthrough guide anytime to learn how to operate simulations and lab tools.
+            </p>
+          </div>
+        </div>
+        {onOpenTutorial && (
+          <button
+            onClick={onOpenTutorial}
+            className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-md flex items-center gap-2 shrink-0"
+          >
+            <span>Open Tutorial Walkthrough</span>
+          </button>
+        )}
+      </div>
+
+
+      {/* User Profile & Custom Photo / Logo */}
       {currentUser && (
-        <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-3xl shadow-lg shadow-cyan-500/20 shrink-0">
-              {currentUser.avatar || '⚛️'}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-extrabold text-white">{currentUser.name}</h3>
-                {currentUser.isGuest ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    Guest Mode
-                  </span>
+        <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-2xl shadow-lg shadow-cyan-500/20 shrink-0 overflow-hidden">
+                {currentUser.avatar && currentUser.avatar.startsWith('http') ? (
+                  <img src={currentUser.avatar} alt="Logo" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    {currentUser.grade}
-                  </span>
+                  <span>{currentUser.avatar || '⚛️'}</span>
                 )}
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {currentUser.roleTitle} • Joined {currentUser.joinedDate || 'Recently'}
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-extrabold text-white">{currentUser.name}</h3>
+                  {currentUser.isGuest ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Test Mode (Guest)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      {currentUser.grade} • Verified
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {currentUser.email ? `Email: ${currentUser.email}` : 'Anonymous Test Session'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onOpenAuthModal}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-bold transition shadow-sm"
+              >
+                <User className="w-4 h-4" />
+                <span>Switch / Login</span>
+              </button>
             </div>
           </div>
 
-          <button
-            onClick={onOpenAuthModal}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-bold transition shadow-sm"
-          >
-            <User className="w-4 h-4" />
-            <span>{currentUser.isGuest ? 'Sign In / Setup Profile' : 'Edit Scientist Profile'}</span>
-          </button>
+          {/* Custom Logo / Photo URL Input */}
+          <form onSubmit={handleUpdatePhoto} className="pt-4 border-t border-slate-800 space-y-2">
+            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Camera className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Upload / Enter Custom Profile Photo or Logo URL:</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={customPhotoInput}
+                onChange={(e) => setCustomPhotoInput(e.target.value)}
+                placeholder="https://example.com/logo.png or emoji"
+                className="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition"
+              >
+                Update Logo
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -125,67 +220,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Central Philosophy Box */}
-      <div className="bg-gradient-to-r from-cyan-950/40 via-slate-900/60 to-emerald-950/40 border border-cyan-800/40 rounded-2xl p-6 text-center space-y-2">
-        <span className="text-xs font-mono uppercase tracking-widest text-cyan-400 font-bold">
-          Core Educational Philosophy
-        </span>
-        <blockquote className="text-lg font-semibold text-white italic">
-          "Don't tell students what happens. Let them make it happen."
-        </blockquote>
-        <p className="text-xs text-slate-400 max-w-xl mx-auto">
-          Scientific understanding is achieved when learners manipulate variables, confront misconceptions, collect empirical data, and construct explanations grounded in verified models.
-        </p>
-      </div>
-
-      {/* Creator Feedback, Suggestions & Review */}
-      {onOpenReviewModal && (
-        <div className="bg-gradient-to-r from-purple-950/30 via-[#131E36] to-cyan-950/30 rounded-2xl border border-cyan-500/30 p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-              <h4 className="text-sm font-bold text-white">Suggestions, Queries &amp; Creator Review</h4>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-bold">
-                Private &amp; Direct
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-              Email the developer directly to suggest new simulation models, report issues, or ask questions. The developer&apos;s email address is kept private, and only your name is shown.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onOpenReviewModal('form')}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition active:scale-95"
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Submit Review</span>
-            </button>
-            <button
-              onClick={() => onOpenReviewModal('inbox')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition active:scale-95"
-            >
-              <Inbox className="w-4 h-4 text-cyan-200" />
-              <span>Creator Inbox</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Progress */}
-      <div className="bg-[#131E36] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      {/* Reset Progress Section */}
+      <div className="bg-[#131E36] rounded-2xl border border-rose-900/40 p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h4 className="text-sm font-bold text-white">Reset Local Laboratory Data</h4>
+          <h3 className="text-sm font-bold text-white">Reset Laboratory Notebook</h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Clear all logged experiments, mistake records, and reset streak to day 1.
+            Clear all explored concepts, solved misconceptions, and investigation history.
           </p>
         </div>
         <button
           onClick={onResetProgress}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold transition active:scale-95"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold transition"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset All Progress</span>
+          <RotateCcw className="w-4 h-4" />
+          <span>Reset Notebook</span>
         </button>
       </div>
     </div>
